@@ -1597,55 +1597,60 @@ fn shimmer(text: &str, at: Instant, base: Color) -> Vec<Span<'static>> {
 static BOOT: OnceLock<Instant> = OnceLock::new();
 
 // ---- logo "ratscope" — glifos pixel-art desenhados à mão, renderizados com ▀ ----
-// grade lógica: 14 linhas × 47 colunas; cada célula do terminal = 2 pixels verticais
+// grade lógica: 14 linhas × 55 colunas; traço 2px; cada célula do terminal = 2 pixels verticais
 // (offset = linhas vazias acima; baseline dos glifos x-height = linha 11)
 const GLYPHS: &[(&str, usize, &[&str])] = &[
     (
         "r",
         4,
-        &["#.##.", "##..#", "#....", "#....", "#....", "#....", "#....", "#...."],
+        &[".####.", "###...", "##....", "##....", "##....", "##....", "##....", "##...."],
     ),
     (
         "a",
         4,
-        &[".###.", "....#", "....#", ".###.", "#...#", "#...#", "#...#", ".####"],
+        &[".####.", "....##", "....##", ".####.", "##..##", "##..##", "##..##", ".####."],
     ),
     (
         "t",
         2,
         &[
-            "..#..", "..#..", "..#..", "####.", "..#..", "..#..", "..#..", "..#..", "..##.", "..##.",
+            "..##..", "..##..", "######", "..##..", "..##..", "..##..", "..##..", "..##..", "..###.",
+            "..###.",
         ],
     ),
     (
         "s",
         4,
-        &[".####", "#....", "#....", ".###.", "....#", "....#", "....#", "####."],
+        &[".#####", "##....", "##....", ".####.", "....##", "....##", "....##", "#####."],
     ),
     (
         "c",
         4,
-        &[".####", "#....", "#....", "#....", "#....", "#....", "#....", ".####"],
+        &[".#####", "##....", "##....", "##....", "##....", "##....", "##....", ".#####"],
     ),
     (
         "o",
         4,
-        &[".###.", "#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+        &[".####.", "##..##", "##..##", "##..##", "##..##", "##..##", "##..##", ".####."],
     ),
     (
         "p",
         4,
-        &["####.", "#...#", "#...#", "#...#", "####.", "#....", "#....", "#....", "#....", "#...."],
+        &[
+            "#####.", "##..##", "##..##", "##..##", "#####.", "##....", "##....", "##....", "##....",
+            "##....",
+        ],
     ),
     (
         "e",
         4,
-        &[".###.", "#...#", "#...#", "#####", "#....", "#....", "#...#", ".###."],
+        &[".####.", "##..##", "##..##", "######", "##....", "##....", "##..##", ".####."],
     ),
 ];
 
 fn logo_grid() -> Vec<Vec<bool>> {
-    let mut grid = vec![vec![false; 47]; 14];
+    const W: usize = 55; // 8 letras × 6 + 7 espaços
+    let mut grid = vec![vec![false; W]; 14];
     let mut x = 0usize;
     for (_, off, rows) in GLYPHS {
         for (ry, row) in rows.iter().enumerate() {
@@ -1655,14 +1660,14 @@ fn logo_grid() -> Vec<Vec<bool>> {
                 }
             }
         }
-        x += 6; // 5 de glifo + 1 de respiro
+        x += 7; // 6 de glifo + 1 de respiro
     }
     grid
 }
 
 // desenha a logo centrada; devolve a área ocupada (None se não cabe)
 fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
-    const W: usize = 47; // 8 letras × 5 + 7 espaços
+    const W: usize = 55; // 8 letras × 6 + 7 espaços
     const ROWS: usize = 14;
     // pixel largo: 2 colunas por pixel compensa a célula de terminal ser mais alta que larga
     let wide = (area.width as usize) >= W * 2;
