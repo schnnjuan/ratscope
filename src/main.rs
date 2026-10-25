@@ -1664,6 +1664,9 @@ fn logo_grid() -> Vec<Vec<bool>> {
 fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
     const W: usize = 47; // 8 letras × 5 + 7 espaços
     const ROWS: usize = 14;
+    // pixel largo: 2 colunas por pixel compensa a célula de terminal ser mais alta que larga
+    let wide = (area.width as usize) >= W * 2;
+    let cols = if wide { W * 2 } else { W };
     if (area.width as usize) < W || (area.height as usize) < ROWS / 2 + 2 {
         return None;
     }
@@ -1684,23 +1687,27 @@ fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
     let bg = c_bg();
     let mut lines: Vec<Line> = Vec::with_capacity(ROWS / 2);
     for pair in 0..ROWS / 2 {
-        let mut spans = Vec::with_capacity(W);
+        let mut spans = Vec::with_capacity(cols);
         for cx in 0..W {
             let top = grid[pair * 2][cx];
             let bot = grid[pair * 2 + 1][cx];
-            spans.push(Span::styled(
+            let span = Span::styled(
                 "▀",
                 Style::new()
                     .fg(if top { grad[pair * 2] } else { bg })
                     .bg(if bot { grad[pair * 2 + 1] } else { bg }),
-            ));
+            );
+            spans.push(span.clone());
+            if wide {
+                spans.push(span);
+            }
         }
         lines.push(Line::from(spans));
     }
     let r = Rect {
-        x: area.x + (area.width.saturating_sub(W as u16)) / 2,
+        x: area.x + (area.width.saturating_sub(cols as u16)) / 2,
         y: area.y + (area.height.saturating_sub(ROWS as u16 / 2 + 2)) / 2,
-        width: W as u16,
+        width: cols as u16,
         height: ROWS as u16 / 2,
     };
     f.render_widget(Paragraph::new(lines), r);
