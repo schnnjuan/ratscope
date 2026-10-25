@@ -1,6 +1,6 @@
 #!/bin/sh
 # ratscope installer
-#   curl -fsSL https://raw.githubusercontent.com/schnnjuan/ratscope/master/install.sh | sh
+#   curl -fsSL https://github.com/schnnjuan/ratscope/releases/latest/download/install.sh | sh
 # flags: RATSCOPE_LANG=en|pt · RATSCOPE_PREFIX=dir
 set -eu
 
