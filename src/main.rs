@@ -94,7 +94,122 @@ impl Theme {
             gauge: GaugeKind::Circulo,
         }
     }
+
+    #[rustfmt::skip]
+    fn montar(
+        bg: Color, cy: Color, mag: Color, grn: Color, yel: Color, red: Color,
+        gray: Color, blu: Color, lblu: Color, lred: Color, wht: Color, blk: Color,
+        border: BorderKind, gauge: GaugeKind,
+    ) -> Self {
+        Self { bg, cy, mag, grn, yel, red, gray, blu, lblu, lred, wht, blk, border, gauge }
+    }
+
+    fn gruvbox() -> Self {
+        Self::montar(
+            Color::Rgb(40, 40, 40), Color::Rgb(131, 165, 152), Color::Rgb(211, 134, 155),
+            Color::Rgb(184, 187, 38), Color::Rgb(250, 189, 47), Color::Rgb(251, 73, 52),
+            Color::Rgb(146, 131, 116), Color::Rgb(69, 133, 136), Color::Rgb(254, 128, 25),
+            Color::Rgb(214, 93, 14), Color::Rgb(235, 219, 178), Color::Rgb(30, 30, 30),
+            BorderKind::Linha, GaugeKind::Quadrado,
+        )
+    }
+    fn nord() -> Self {
+        Self::montar(
+            Color::Rgb(46, 52, 64), Color::Rgb(136, 192, 208), Color::Rgb(180, 142, 173),
+            Color::Rgb(163, 190, 140), Color::Rgb(235, 203, 139), Color::Rgb(191, 97, 106),
+            Color::Rgb(76, 86, 106), Color::Rgb(59, 66, 82), Color::Rgb(129, 161, 193),
+            Color::Rgb(208, 135, 112), Color::Rgb(236, 239, 244), Color::Rgb(36, 42, 54),
+            BorderKind::Linha, GaugeKind::Circulo,
+        )
+    }
+    fn catppuccin() -> Self {
+        Self::montar(
+            Color::Rgb(30, 30, 46), Color::Rgb(137, 220, 235), Color::Rgb(245, 194, 231),
+            Color::Rgb(166, 227, 161), Color::Rgb(249, 226, 175), Color::Rgb(243, 139, 168),
+            Color::Rgb(108, 112, 134), Color::Rgb(49, 50, 68), Color::Rgb(250, 179, 135),
+            Color::Rgb(250, 128, 114), Color::Rgb(205, 214, 244), Color::Rgb(24, 24, 37),
+            BorderKind::Linha, GaugeKind::Quadrado,
+        )
+    }
+    fn tokyo() -> Self {
+        Self::montar(
+            Color::Rgb(26, 27, 38), Color::Rgb(125, 207, 255), Color::Rgb(187, 154, 247),
+            Color::Rgb(158, 206, 106), Color::Rgb(224, 175, 108), Color::Rgb(247, 118, 142),
+            Color::Rgb(86, 95, 137), Color::Rgb(22, 22, 30), Color::Rgb(255, 158, 100),
+            Color::Rgb(219, 75, 75), Color::Rgb(169, 177, 214), Color::Rgb(22, 22, 30),
+            BorderKind::Dupla, GaugeKind::Circulo,
+        )
+    }
+    fn solarized() -> Self {
+        Self::montar(
+            Color::Rgb(0, 43, 54), Color::Rgb(42, 161, 152), Color::Rgb(211, 54, 130),
+            Color::Rgb(133, 153, 0), Color::Rgb(181, 137, 0), Color::Rgb(220, 50, 47),
+            Color::Rgb(88, 110, 117), Color::Rgb(7, 54, 66), Color::Rgb(203, 75, 22),
+            Color::Rgb(38, 139, 210), Color::Rgb(238, 232, 213), Color::Rgb(0, 30, 40),
+            BorderKind::Linha, GaugeKind::Quadrado,
+        )
+    }
+    fn synthwave() -> Self {
+        Self::montar(
+            Color::Rgb(43, 33, 58), Color::Rgb(0, 240, 255), Color::Rgb(255, 126, 219),
+            Color::Rgb(114, 241, 184), Color::Rgb(253, 244, 110), Color::Rgb(254, 68, 80),
+            Color::Rgb(124, 108, 166), Color::Rgb(34, 26, 51), Color::Rgb(255, 183, 120),
+            Color::Rgb(255, 94, 158), Color::Rgb(236, 224, 255), Color::Rgb(24, 18, 35),
+            BorderKind::Grossa, GaugeKind::Circulo,
+        )
+    }
+    fn matrix() -> Self {
+        Self::montar(
+            Color::Rgb(0, 10, 0), Color::Rgb(0, 255, 70), Color::Rgb(0, 160, 40),
+            Color::Rgb(0, 255, 120), Color::Rgb(120, 255, 120), Color::Rgb(200, 60, 30),
+            Color::Rgb(0, 100, 30), Color::Rgb(0, 40, 10), Color::Rgb(80, 255, 140),
+            Color::Rgb(0, 130, 50), Color::Rgb(180, 255, 190), Color::Rgb(0, 5, 0),
+            BorderKind::Linha, GaugeKind::Quadrado,
+        )
+    }
+    fn candy() -> Self {
+        Self::montar(
+            Color::Rgb(40, 12, 36), Color::Rgb(0, 229, 255), Color::Rgb(255, 64, 196),
+            Color::Rgb(0, 255, 128), Color::Rgb(255, 214, 0), Color::Rgb(255, 45, 85),
+            Color::Rgb(180, 120, 170), Color::Rgb(60, 20, 50), Color::Rgb(255, 170, 220),
+            Color::Rgb(200, 80, 255), Color::Rgb(255, 240, 250), Color::Rgb(28, 8, 26),
+            BorderKind::Dupla, GaugeKind::Circulo,
+        )
+    }
+    fn ember() -> Self {
+        Self::montar(
+            Color::Rgb(26, 16, 12), Color::Rgb(255, 160, 70), Color::Rgb(255, 90, 60),
+            Color::Rgb(210, 140, 60), Color::Rgb(255, 210, 90), Color::Rgb(255, 60, 40),
+            Color::Rgb(140, 100, 80), Color::Rgb(60, 30, 20), Color::Rgb(255, 190, 120),
+            Color::Rgb(200, 70, 30), Color::Rgb(255, 230, 200), Color::Rgb(20, 12, 9),
+            BorderKind::Grossa, GaugeKind::Quadrado,
+        )
+    }
+    fn mono() -> Self {
+        Self::montar(
+            Color::Rgb(18, 18, 18), Color::Rgb(220, 220, 220), Color::Rgb(170, 170, 170),
+            Color::Rgb(200, 200, 200), Color::Rgb(240, 240, 240), Color::Rgb(255, 255, 255),
+            Color::Rgb(90, 90, 90), Color::Rgb(40, 40, 40), Color::Rgb(150, 150, 150),
+            Color::Rgb(120, 120, 120), Color::Rgb(255, 255, 255), Color::Rgb(8, 8, 8),
+            BorderKind::Dupla, GaugeKind::Quadrado,
+        )
+    }
 }
+
+const THEME_LIST: &[(&str, fn() -> Theme)] = &[
+    ("pixel", Theme::pixel),
+    ("dracula", Theme::dracula),
+    ("gruvbox", Theme::gruvbox),
+    ("nord", Theme::nord),
+    ("catppuccin", Theme::catppuccin),
+    ("tokyo", Theme::tokyo),
+    ("solarized", Theme::solarized),
+    ("synthwave", Theme::synthwave),
+    ("matrix", Theme::matrix),
+    ("candy", Theme::candy),
+    ("ember", Theme::ember),
+    ("mono", Theme::mono),
+];
 
 static THEME: OnceLock<RwLock<Theme>> = OnceLock::new();
 
@@ -268,7 +383,8 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
             "                             gray blue peach orange white black".into(),
             "  border <pixel|line|double|thick>".into(),
             "  gauge <square|circle>".into(),
-            "  theme <pixel|dracula>      presets".into(),
+            "  theme <name>              pixel dracula gruvbox nord catppuccin tokyo".into(),
+            "                            solarized synthwave matrix candy ember mono".into(),
             "  lang <en|pt>               interface language".into(),
             "  show                       current values".into(),
             "  save                       writes ~/.config/ratscope/config.json".into(),
@@ -352,15 +468,16 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                 )),
             }
         }
-        ["theme" | "tema", "pixel"] => {
-            mudar_tema(|t| *t = Theme::pixel());
-            ok()
-        }
-        ["theme" | "tema", "dracula"] => {
-            mudar_tema(|t| *t = Theme::dracula());
-            ok()
-        }
-        ["theme" | "tema", _] => bad(tr("use: theme pixel|dracula", "use: tema pixel|dracula")),
+        ["theme" | "tema", nome] => match THEME_LIST.iter().find(|(n, _)| n == nome) {
+            Some((_, f)) => {
+                mudar_tema(|t| *t = f());
+                ok()
+            }
+            None => bad(tr(
+                "use: theme pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono",
+                "use: tema pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono",
+            )),
+        },
         ["reset"] => {
             mudar_tema(|t| *t = Theme::pixel());
             ok()
@@ -1073,9 +1190,9 @@ fn table_hit(area: Rect, cy: u16, off: usize, len: usize, vis: usize) -> Option<
     (idx < len && idx < off + vis).then_some(idx)
 }
 
-// qtas linhas de processos cabem na visão pc (2 bordas + título + 14 linhas fixas de conteúdo)
+// qtas linhas de processos cabem na visão pc (2 bordas + título + 17 linhas fixas de conteúdo)
 fn over_nprocs(area: Rect) -> usize {
-    (area.height.saturating_sub(17) as usize).min(8)
+    (area.height.saturating_sub(20) as usize).min(8)
 }
 
 fn over_hit(area: Rect, cy: u16, snap: Option<&Snapshot>) -> Option<usize> {
@@ -1083,8 +1200,8 @@ fn over_hit(area: Rect, cy: u16, snap: Option<&Snapshot>) -> Option<usize> {
     if n == 0 {
         return None;
     }
-    // 2 bordas + título + cpu + total + bar + legend + blank + hdr ram = 8
-    let rel = cy as i32 - area.y as i32 - 8;
+    // 2 bordas + título + cpu + total(título/bar/legend) + blank + ram(título/bar/legend) = 11
+    let rel = cy as i32 - area.y as i32 - 11;
     if rel < 0 {
         return None;
     }
@@ -2328,26 +2445,26 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
         Span::styled(tr(" 1s per point", " 1s por ponto"), Style::new().fg(c_gray())),
     ]));
 
-    // pizza geral — 1 cor por coisa; cada partição de disco com cor própria
+    // total pc — disco + docker; memória tem barra própria abaixo
     let disk_size: u64 = pc.mounts.iter().map(|m| m.1).sum();
-    let pool = pc.mem_total + pc.swap_total + disk_size;
-    let mut parts: Vec<(u64, Color)> = vec![(pc.mem_used, c_cy()), (pc.swap_used, c_mag())];
-    let mut legend = vec![
-        Span::styled("■ ram", Style::new().fg(c_cy())),
-        Span::raw(" "),
-        Span::styled("■ swap", Style::new().fg(c_mag())),
-        Span::raw(" "),
-    ];
     let mcols = [c_grn(), c_lred(), c_lblu()];
-    for (i, (target, _, used)) in pc.mounts.iter().enumerate() {
-        let col = mcols[i % mcols.len()];
-        parts.push((*used, col));
-        legend.push(Span::styled(
-            format!("■ {}", trunc(target, 12)),
-            Style::new().fg(col),
-        ));
-        legend.push(Span::raw(" "));
-    }
+    let mut parts: Vec<(u64, Color)> = pc
+        .mounts
+        .iter()
+        .enumerate()
+        .map(|(i, (target, _, used))| (*used, mcols[i % mcols.len()]))
+        .collect();
+    let mut legend: Vec<Span> = pc
+        .mounts
+        .iter()
+        .enumerate()
+        .flat_map(|(i, (target, _, _))| {
+            vec![
+                Span::styled(format!("■ {}", trunc(target, 12)), Style::new().fg(mcols[i % mcols.len()])),
+                Span::raw(" "),
+            ]
+        })
+        .collect();
     parts.push((snap.dk_total, c_yel()));
     legend.push(Span::styled("■ docker", Style::new().fg(c_yel())));
     legend.push(Span::raw(" "));
@@ -2356,10 +2473,47 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
         Span::styled(" total pc ", Style::new().fg(c_cy()).add_modifier(Modifier::BOLD)),
         Span::from(" "),
     ]));
-    let bar = bar_stack(inner_w.max(10), pool, &parts);
-    lines.push(Line::from(bar.clone()));
+    let bar = bar_stack(inner_w.max(10), disk_size, &parts);
+    lines.push(Line::from(bar));
     lines.push(Line::from(legend));
+
+    // ram — barra própria com o que tá consumindo (top processos + swap)
     lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        " ram ",
+        Style::new().fg(c_cy()).add_modifier(Modifier::BOLD),
+    )));
+    let pool_r = pc.mem_total + pc.swap_total;
+    let mut rparts: Vec<(u64, Color)> = snap
+        .procs
+        .iter()
+        .take(8)
+        .enumerate()
+        .map(|(i, p)| (p.rss_b, pal()[i % pal().len()]))
+        .collect();
+    let mut rleg: Vec<Span> = snap
+        .procs
+        .iter()
+        .take(8)
+        .enumerate()
+        .flat_map(|(i, p)| {
+            vec![
+                Span::styled(
+                    format!("■ {}", trunc(&p.comm, 10)),
+                    Style::new().fg(pal()[i % pal().len()]),
+                ),
+                Span::raw(" "),
+            ]
+        })
+        .collect();
+    if pc.swap_used > 0 {
+        rparts.push((pc.swap_used, c_mag()));
+        rleg.push(Span::styled("■ swap", Style::new().fg(c_mag())));
+        rleg.push(Span::raw(" "));
+    }
+    rleg.push(Span::styled(tr("▒ free", "▒ livre"), Style::new().fg(c_gray())));
+    lines.push(Line::from(bar_stack(inner_w.max(10), pool_r, &rparts)));
+    lines.push(Line::from(rleg));
 
     // ram por coisa (processos) — clicável, pizza por quota de memória
     lines.push(Line::from(Span::styled(
