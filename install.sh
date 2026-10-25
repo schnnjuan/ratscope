@@ -45,11 +45,9 @@ trap cleanup EXIT
 printf '%s' "$HIDE"
 printf '\n'
 # logo: same pixel glyphs as the app, ▀ half-blocks, mint→teal→dark gradient
-python3 - "$E" "$(stty size </dev/tty 2>/dev/null | awk '{print $2}')" <<'PYEOF' 2>/dev/null || true
+python3 - "$E" <<'PYEOF' 2>/dev/null || true
 import sys
 E = sys.argv[1] if len(sys.argv) > 1 else "\033"
-cols = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 80
-WIDE = cols >= 114  # 2 columns per pixel, like the app — fixes stretched glyphs
 G = [
  ("r",4,[".####.","###...","##....","##....","##....","##....","##....","##...."]),
  ("a",4,[".####.","....##","....##",".####.","##..##","##..##","##..##",".####."]),
@@ -71,22 +69,11 @@ for _,off,rows in G:
 def lerp(a,b,f): return tuple(round(a[i]+(b[i]-a[i])*f) for i in range(3))
 A,B,C=(198,230,224),(83,143,135),(39,68,66)
 grad=[lerp(A,B,y/7) if y<7 else lerp(B,C,(y-7)/7) for y in range(H)]
-for pair in range(H//2):
-    out=[]
-    for cx in range(W):
-        t=grid[pair*2][cx]; b=grid[pair*2+1][cx]
-        if not t and not b:
-            out.append(" " * (2 if WIDE else 1)); continue
-        if t:
-            fgc=grad[pair*2]; ch="▀"
-        else:
-            fgc=grad[pair*2+1]; ch="▄"
-        s=f"{E}[38;2;{fgc[0]};{fgc[1]};{fgc[2]}m"
-        if t and b:
-            bgc=grad[pair*2+1]
-            s+=f"{E}[48;2;{bgc[0]};{bgc[1]};{bgc[2]}m"
-        out.append(s + ch * (2 if WIDE else 1))
-    print("  " + "".join(out) + E + "[39;49m")
+for y in range(H):
+    fg = grad[y]
+    row = "".join("█" if grid[y][cx] else " " for cx in range(W)).rstrip()
+    if row:
+        print(f"  {E}[38;2;{fg[0]};{fg[1]};{fg[2]}m{row}{E}[39;49m")
 PYEOF
 printf '\n'
 printf '  %spixel-art dashboard for docker, systemd, ports and hardware%s\n\n' "$GRAY" "$RESET"
