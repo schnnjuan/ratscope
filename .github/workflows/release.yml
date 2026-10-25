@@ -13,6 +13,8 @@ jobs:
       matrix:
         target: [x86_64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
     runs-on: ubuntu-latest
+    env:
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: rust-lld
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
