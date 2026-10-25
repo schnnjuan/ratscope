@@ -126,6 +126,42 @@ fn mudar_tema(f: impl FnOnce(&mut Theme)) {
     *lock.write().unwrap() = novo;
 }
 
+// ---- idioma: inglês é o padrão, português opcional ----
+
+#[derive(Clone, Copy, PartialEq)]
+enum Lang {
+    En,
+    Pt,
+}
+
+static LANG: OnceLock<RwLock<Lang>> = OnceLock::new();
+
+fn lang() -> Lang {
+    *LANG.get_or_init(|| RwLock::new(Lang::En)).read().unwrap()
+}
+
+fn set_lang(l: Lang) {
+    *LANG.get_or_init(|| RwLock::new(Lang::En)).write().unwrap() = l;
+}
+
+// string bilíngue
+fn tr(en: &'static str, pt: &'static str) -> &'static str {
+    match lang() {
+        Lang::En => en,
+        Lang::Pt => pt,
+    }
+}
+
+// tr com um único {} substituído
+fn tr1(en: &'static str, pt: &'static str, a: &str) -> String {
+    tr(en, pt).replacen("{}", a, 1)
+}
+
+// tr com dois {}
+fn tr2(en: &'static str, pt: &'static str, a: &str, b: &str) -> String {
+    tr(en, pt).replacen("{}", a, 1).replacen("{}", b, 1)
+}
+
 fn parse_hex(s: &str) -> Option<Color> {
     let s = s.trim().trim_start_matches('#');
     let full: String = if s.len() == 3 {
@@ -170,6 +206,10 @@ fn salvar_config() -> Result<String, String> {
             GaugeKind::Quadrado => "quadrado",
             GaugeKind::Circulo => "circulo",
         },
+        "lang": match lang() {
+            Lang::Pt => "pt",
+            Lang::En => "en",
+        },
     });
     if let Some(d) = p.parent() {
         std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
@@ -210,62 +250,78 @@ fn carregar_config() {
             _ => t.gauge,
         };
     });
+    if v["lang"].as_str() == Some("pt") {
+        set_lang(Lang::Pt);
+    }
 }
 
 // comandos do terminal embutido; devolve linhas de resposta
 fn exec_cmd(cmd: &str) -> Vec<String> {
     let bad = |m: &str| vec![format!("✖ {m}")];
-    let ok = || vec!["✔ feito".to_string()];
+    let ok = || vec![tr("✔ done", "✔ feito").to_string()];
     let ws: Vec<&str> = cmd.split_whitespace().collect();
     match ws.as_slice() {
-        ["ajuda"] => vec![
-            "comandos:".into(),
-            "  fundo <hex>                ex: fundo #10101A".into(),
-            "  cor <nome> <hex>           ciano rosa verde amarelo vermelho".into(),
-            "                             cinza azul pessego laranja branco preto".into(),
-            "  borda <pixel|linha|dupla|grossa>".into(),
-            "  medidor <quadrado|circulo>".into(),
-            "  tema <pixel|dracula>       predefinições".into(),
-            "  ver                        valores atuais".into(),
-            "  salvar                     grava em ~/.config/ratscope/config.json".into(),
-            "  reset                      volta ao tema pixel".into(),
+        ["help" | "ajuda"] => vec![
+            "commands:".into(),
+            "  bg <hex>                   e.g. bg #10101A".into(),
+            "  color <name> <hex>         cyan pink green yellow red".into(),
+            "                             gray blue peach orange white black".into(),
+            "  border <pixel|line|double|thick>".into(),
+            "  gauge <square|circle>".into(),
+            "  theme <pixel|dracula>      presets".into(),
+            "  lang <en|pt>               interface language".into(),
+            "  show                       current values".into(),
+            "  save                       writes ~/.config/ratscope/config.json".into(),
+            "  reset                      back to the pixel theme".into(),
         ],
-        ["fundo", h] => match parse_hex(h) {
+        ["lang", "en"] => {
+            set_lang(Lang::En);
+            ok()
+        }
+        ["lang", "pt"] => {
+            set_lang(Lang::Pt);
+            ok()
+        }
+        ["lang", _] => bad("use: lang en|pt"),
+        ["bg" | "fundo", h] => match parse_hex(h) {
             Some(c) => {
                 mudar_tema(move |t| t.bg = c);
                 ok()
             }
-            None => bad("hex inválido (ex: #10101A)"),
+            None => bad(tr("invalid hex (e.g. #10101A)", "hex inválido (ex: #10101A)")),
         },
-        ["cor", nome, h] => match parse_hex(h) {
-            None => bad("hex inválido (ex: #FF004D)"),
+        ["color" | "cor", nome, h] => match parse_hex(h) {
+            None => bad(tr("invalid hex (e.g. #FF004D)", "hex inválido (ex: #FF004D)")),
             Some(c) => {
                 let set: fn(&mut Theme, Color) = match *nome {
-                    "ciano" => |t, c| t.cy = c,
-                    "rosa" => |t, c| t.mag = c,
-                    "verde" => |t, c| t.grn = c,
-                    "amarelo" => |t, c| t.yel = c,
-                    "vermelho" => |t, c| t.red = c,
-                    "cinza" => |t, c| t.gray = c,
-                    "azul" => |t, c| t.blu = c,
-                    "pessego" => |t, c| t.lblu = c,
-                    "laranja" => |t, c| t.lred = c,
-                    "branco" => |t, c| t.wht = c,
-                    "preto" => |t, c| t.blk = c,
+                    "cyan" | "ciano" => |t, c| t.cy = c,
+                    "pink" | "rosa" => |t, c| t.mag = c,
+                    "green" | "verde" => |t, c| t.grn = c,
+                    "yellow" | "amarelo" => |t, c| t.yel = c,
+                    "red" | "vermelho" => |t, c| t.red = c,
+                    "gray" | "cinza" => |t, c| t.gray = c,
+                    "blue" | "azul" => |t, c| t.blu = c,
+                    "peach" | "pessego" => |t, c| t.lblu = c,
+                    "orange" | "laranja" => |t, c| t.lred = c,
+                    "white" | "branco" => |t, c| t.wht = c,
+                    "black" | "preto" => |t, c| t.blk = c,
                     _ => {
-                        return bad("cor desconhecida — 'ajuda' lista os nomes");
+                        return bad(tr(
+                            "unknown color — 'help' lists the names",
+                            "cor desconhecida — 'ajuda' lista os nomes",
+                        ));
                     }
                 };
                 mudar_tema(move |t| set(t, c));
                 ok()
             }
         },
-        ["borda", k] => {
+        ["border" | "borda", k] => {
             let k = match *k {
                 "pixel" => Some(BorderKind::Pixel),
-                "linha" => Some(BorderKind::Linha),
-                "dupla" => Some(BorderKind::Dupla),
-                "grossa" => Some(BorderKind::Grossa),
+                "line" | "linha" => Some(BorderKind::Linha),
+                "double" | "dupla" => Some(BorderKind::Dupla),
+                "thick" | "grossa" => Some(BorderKind::Grossa),
                 _ => None,
             };
             match k {
@@ -273,13 +329,16 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                     mudar_tema(move |t| t.border = b);
                     ok()
                 }
-                None => bad("use: borda pixel|linha|dupla|grossa"),
+                None => bad(tr(
+                    "use: border pixel|line|double|thick",
+                    "use: borda pixel|linha|dupla|grossa",
+                )),
             }
         }
-        ["medidor", k] => {
+        ["gauge" | "medidor", k] => {
             let k = match *k {
-                "quadrado" => Some(GaugeKind::Quadrado),
-                "circulo" => Some(GaugeKind::Circulo),
+                "square" | "quadrado" => Some(GaugeKind::Quadrado),
+                "circle" | "circulo" => Some(GaugeKind::Circulo),
                 _ => None,
             };
             match k {
@@ -287,55 +346,79 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                     mudar_tema(move |t| t.gauge = g);
                     ok()
                 }
-                None => bad("use: medidor quadrado|circulo"),
+                None => bad(tr(
+                    "use: gauge square|circle",
+                    "use: medidor quadrado|circulo",
+                )),
             }
         }
-        ["tema", "pixel"] => {
+        ["theme" | "tema", "pixel"] => {
             mudar_tema(|t| *t = Theme::pixel());
             ok()
         }
-        ["tema", "dracula"] => {
+        ["theme" | "tema", "dracula"] => {
             mudar_tema(|t| *t = Theme::dracula());
             ok()
         }
-        ["tema", _] => bad("use: tema pixel|dracula"),
+        ["theme" | "tema", _] => bad(tr("use: theme pixel|dracula", "use: tema pixel|dracula")),
         ["reset"] => {
             mudar_tema(|t| *t = Theme::pixel());
             ok()
         }
-        ["ver"] => {
+        ["show" | "ver"] => {
             let x = t();
             vec![
                 format!(
-                    "fundo {} · borda {:?} · medidor {:?}",
+                    "{} {} · {} {:?} · {} {:?}",
+                    tr("bg", "fundo"),
                     hex_of(x.bg),
+                    tr("border", "borda"),
                     x.border,
+                    tr("gauge", "medidor"),
                     x.gauge
                 ),
                 format!(
-                    "ciano {} rosa {} verde {} amarelo {} vermelho {}",
+                    "{} {} {} {} {} {}",
+                    tr("cyan", "ciano"),
                     hex_of(x.cy),
+                    tr("pink", "rosa"),
                     hex_of(x.mag),
-                    hex_of(x.grn),
-                    hex_of(x.yel),
-                    hex_of(x.red)
+                    tr("green", "verde"),
+                    hex_of(x.grn)
                 ),
                 format!(
-                    "cinza {} azul {} pessego {} laranja {} branco {}",
-                    hex_of(x.gray),
+                    "{} {} {} {} {} {}",
+                    tr("yellow", "amarelo"),
+                    hex_of(x.yel),
+                    tr("red", "vermelho"),
+                    hex_of(x.red),
+                    tr("gray", "cinza"),
+                    hex_of(x.gray)
+                ),
+                format!(
+                    "{} {} {} {} {} {}",
+                    tr("blue", "azul"),
                     hex_of(x.blu),
+                    tr("peach", "pessego"),
                     hex_of(x.lblu),
-                    hex_of(x.lred),
-                    hex_of(x.wht)
+                    tr("orange", "laranja"),
+                    hex_of(x.lred)
+                ),
+                format!(
+                    "{} {} {} {}",
+                    tr("white", "branco"),
+                    hex_of(x.wht),
+                    tr("black", "preto"),
+                    hex_of(x.blk)
                 ),
             ]
         }
-        ["salvar"] => match salvar_config() {
-            Ok(p) => vec![format!("✔ salvo em {p}")],
+        ["save" | "salvar"] => match salvar_config() {
+            Ok(p) => vec![tr1("✔ saved to {}", "✔ salvo em {}", &p)],
             Err(e) => bad(&e),
         },
         [] => vec![],
-        _ => bad("comando desconhecido — 'ajuda' lista"),
+        _ => bad(tr("unknown command — 'help' lists", "comando desconhecido — 'ajuda' lista")),
     }
 }
 
@@ -367,8 +450,8 @@ enum Act {
 impl Act {
     fn label(self) -> &'static str {
         match self {
-            Act::Info => "▪ detalhes",
-            Act::Logs => "▤ ver logs",
+            Act::Info => tr("▪ details", "▪ detalhes"),
+            Act::Logs => tr("▤ view logs", "▤ ver logs"),
             Act::Status => "▤ status/inspect",
             Act::Restart => "↻ restart",
             Act::Reload => "↻ reload",
@@ -378,7 +461,7 @@ impl Act {
             Act::Kill9 => "✚ kill -9",
             Act::Pause => "⏸ pause",
             Act::Unpause => "⏵ unpause",
-            Act::Prune => "🧹 prune imagens",
+            Act::Prune => tr("🧹 prune images", "🧹 prune imagens"),
             Act::Enable => "⏻ enable (boot)",
             Act::Disable => "∅ disable (boot)",
         }
@@ -409,7 +492,7 @@ impl Act {
     }
     fn verb(self) -> &'static str {
         match self {
-            Act::Info => "detalhes",
+            Act::Info => tr("details", "detalhes"),
             Act::Logs => "logs",
             Act::Status => "status",
             Act::Restart => "restart",
@@ -420,7 +503,7 @@ impl Act {
             Act::Kill9 => "kill -9",
             Act::Pause => "pause",
             Act::Unpause => "unpause",
-            Act::Prune => "prune imagens",
+            Act::Prune => tr("prune images", "prune imagens"),
             Act::Enable => "enable",
             Act::Disable => "disable",
         }
@@ -838,7 +921,7 @@ fn df_all(vals: &[serde_json::Value]) -> Vec<(String, u64)> {
 
 fn cat_label(t: &str) -> String {
     match t {
-        "Images" => "imagens",
+        "Images" => tr("images", "imagens"),
         "Containers" => "containers",
         "Local Volumes" | "Volumes" => "volumes",
         "Build Cache" => "build cache",
@@ -1290,9 +1373,9 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             KeyCode::Char('a') => {
                 set_all(!get_all());
                 let msg = if get_all() {
-                    "systemd: mostrando todos os units"
+                    tr("systemd: showing all units", "systemd: mostrando todos os units")
                 } else {
-                    "systemd: só rodando"
+                    tr("systemd: running only", "systemd: só rodando")
                 };
                 st.msg = Some((msg.to_string(), Instant::now()));
                 let tx2 = tx.clone();
@@ -1302,14 +1385,14 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             }
             KeyCode::Char('d') => {
                 st.mode = Mode::Loading {
-                    label: "medindo uso de disco".into(),
+                    label: tr("measuring disk usage", "medindo uso de disco").into(),
                     at: Instant::now(),
                 };
                 spawn_disk(tx.clone());
             }
             KeyCode::Char('x') => {
                 st.mode = Mode::Loading {
-                    label: "listando contexts".into(),
+                    label: tr("listing contexts", "listando contexts").into(),
                     at: Instant::now(),
                 };
                 let tx2 = tx.clone();
@@ -1339,7 +1422,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             KeyCode::Char(':') => {
                 st.mode = Mode::Cmd {
                     input: String::new(),
-                    out: vec!["terminal do tema — 'ajuda' lista comandos · Esc fecha".into()],
+                    out: vec!["theme terminal — type 'help' for commands · Esc closes".into()],
                 };
             }
             _ => {}
@@ -1763,7 +1846,7 @@ fn draw(f: &mut Frame, st: &mut State) {
         let inner = b.inner(st.area);
         let msg = || {
             Line::from(shimmer(
-                "esperando primeira leitura…",
+                tr("waiting for first read…", "esperando primeira leitura…"),
                 *BOOT.get_or_init(Instant::now),
                 c_cy(),
             ))
@@ -1791,7 +1874,7 @@ fn draw(f: &mut Frame, st: &mut State) {
     let title = if snap.docker_ok {
         format!(" ■ docker — {} containers", snap.containers.len())
     } else {
-        " ■ docker — indisponível".to_string()
+        tr(" ■ docker — unavailable", " ■ docker — indisponível").to_string()
     };
     let head = Style::new().fg(c_cy()).add_modifier(Modifier::BOLD);
     let sel_style = Style::new().fg(c_wht()).bg(c_gray());
@@ -1846,7 +1929,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             Constraint::Length(9),
         ],
     )
-    .header(Row::new(["NOME", "IMAGEM", "STATUS", "CPU", "MEM", "SSD", "GRAF"]).style(head));
+    .header(Row::new([tr("NAME", "NOME"), tr("IMAGE", "IMAGEM"), tr("STATUS", "STATUS"), "CPU", "MEM", "SSD", tr("GRAPH", "GRAF")]).style(head));
     f.render_widget(t_docker, body);
 
     // ---- bloco de baixo: systemd · portas · pc ----
@@ -1903,17 +1986,18 @@ fn draw(f: &mut Frame, st: &mut State) {
             };
             let (tr_title, cols, hdr) = if is_ports {
                 (
-                    format!(" ■ portas escutando — {} servers", snap.ports.len()),
+                    tr1(" ■ listening ports — {} servers", " ■ portas escutando — {} servers", &snap.ports.len().to_string()),
                     vec![Constraint::Percentage(34), Constraint::Percentage(66)],
-                    Row::new(["SOCKET", "PROCESSO"]),
+                    Row::new(["SOCKET", tr("PROCESS", "PROCESSO")]),
                 )
             } else {
-                let modo = if get_all() { "todos os units" } else { "só rodando" };
+                let modo = if get_all() { tr("all units", "todos os units") } else { tr("running only", "só rodando") };
                 (
-                    format!(
+                    tr2(
+                        " ■ systemd — {} services — {} · 'a' toggles",
                         " ■ systemd — {} services — {} · 'a' alterna",
-                        snap.units.len(),
-                        modo
+                        &snap.units.len().to_string(),
+                        modo,
                     ),
                     vec![
                         Constraint::Length(2),
@@ -1921,7 +2005,7 @@ fn draw(f: &mut Frame, st: &mut State) {
                         Constraint::Length(10),
                         Constraint::Percentage(60),
                     ],
-                    Row::new(["", "SERVIÇO", "ESTADO", "DESCRIÇÃO"]),
+                    Row::new(["", tr("SERVICE", "SERVIÇO"), tr("STATE", "ESTADO"), tr("DESCRIPTION", "DESCRIÇÃO")]),
                 )
             };
             let body = box_title(f, bottom, tr_title, if is_ports { c_grn() } else { c_mag() });
@@ -1951,7 +2035,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             v.extend(shimmer(label, *at, c_yel()));
             Line::from(v)
         }
-        _ => Line::from("↓↑ seleciona · Tab: docker/systemd/portas/pc · Enter menu · v detalhes · : tema · d disco · x contexto · q sair"),
+        _ => Line::from(tr("↓↑ select · Tab: docker/systemd/ports/pc · Enter menu · v details · : theme · d disk · x context · q quit", "↓↑ seleciona · Tab: docker/systemd/portas/pc · Enter menu · v detalhes · : tema · d disco · x contexto · q sair")),
     };
     f.render_widget(
         Paragraph::new(foot).style(Style::new().fg(c_wht()).bg(c_blu())),
@@ -1966,7 +2050,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             let who = match tgt.caller {
                 Caller::Docker => "docker",
                 Caller::Unit => "systemd",
-                Caller::Proc => "processo",
+                Caller::Proc => tr("process", "processo"),
             };
             let body = box_title(f, r, format!("{who}:{}", tgt.name), c_yel());
             let items: Vec<ListItem> = acts
@@ -1986,12 +2070,14 @@ fn draw(f: &mut Frame, st: &mut State) {
         Mode::Confirm { tgt, act } => {
             let r = popup_rect(st.area, 46, 6);
             f.render_widget(Clear, r);
-            let body = box_title(f, r, " confirmar ", c_yel());
+            let body = box_title(f, r, tr(" confirm ", " confirmar "), c_yel());
             f.render_widget(
                 Paragraph::new(format!(
-                    " {} '{}'?\n\n y = sim · n/Esc = cancelar",
+                    " {} '{}'?\n\n {} = yes · n/Esc = {}",
                     act.verb(),
-                    tgt.name
+                    tgt.name,
+                    tr("y", "s"),
+                    tr("cancel", "cancelar")
                 ))
                 .style(Style::new().fg(c_yel())),
                 body,
@@ -2007,7 +2093,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             let body = box_title(
                 f,
                 r,
-                format!(" logs ao vivo — {} (Esc fecha)", tgt.name),
+                tr1(" live logs — {} (Esc closes)", " logs ao vivo — {} (Esc fecha)", &tgt.name),
                 c_yel(),
             );
             let keep = body.height as usize;
@@ -2029,19 +2115,19 @@ fn draw(f: &mut Frame, st: &mut State) {
             let w = 56u16.min(st.area.width.saturating_sub(4)).max(34);
             let r = popup_rect(st.area, w, h);
             f.render_widget(Clear, r);
-            let body = box_title(f, r, " ■ uso de SSD (docker)", c_yel());
+            let body = box_title(f, r, tr(" ■ SSD usage (docker)", " ■ uso de SSD (docker)"), c_yel());
             let mut lines_s = String::new();
             if data.total == 0 {
-                lines_s.push_str(" docker indisponível — sem medidas de disco");
+                lines_s.push_str(tr(" docker unavailable — no disk measurements", " docker indisponível — sem medidas de disco"));
             } else {
                 lines_s.push_str(&format!(" docker total: {}\n\n", fmt_size(data.total)));
                 for (t, v) in &data.cats {
                     let pl = pie(*v as f64 / data.total as f64);
                     lines_s.push_str(&format!(" {} {:<13} {:>9}\n", pl, cat_label(t), fmt_size(*v)));
                 }
-                lines_s.push_str("\n maiores imagens:\n");
+                lines_s.push_str(tr("\n largest images:\n", "\n maiores imagens:\n"));
                 if imgs.is_empty() {
-                    lines_s.push_str(" (nenhuma imagem puxada)");
+                    lines_s.push_str(tr(" (no images pulled)", " (nenhuma imagem puxada)"));
                 } else {
                     for (repo, b) in imgs {
                         let pl = pie(*b as f64 / data.total as f64);
@@ -2089,8 +2175,8 @@ fn draw(f: &mut Frame, st: &mut State) {
                 match tgt.caller {
                     Caller::Docker => match s.containers.iter().find(|c| c.name == tgt.name) {
                         Some(c) => {
-                            info.push(("nome".into(), c.name.clone()));
-                            info.push(("imagem".into(), c.image.clone()));
+                            info.push((tr("name", "nome").to_string(), c.name.clone()));
+                            info.push((tr("image", "imagem").to_string(), c.image.clone()));
                             info.push(("status".into(), c.status.clone()));
                             info.push(("cpu".into(), c.cpu.clone()));
                             info.push(("mem".into(), c.mem.clone()));
@@ -2101,9 +2187,9 @@ fn draw(f: &mut Frame, st: &mut State) {
                     Caller::Unit => match s.units.iter().find(|u| u.name == tgt.name) {
                         Some(u) => {
                             info.push(("nome".into(), u.name.clone()));
-                            info.push(("estado".into(), u.state.clone()));
-                            info.push(("escopo".into(), if u.user { "usuário" } else { "sistema" }.into()));
-                            info.push(("descrição".into(), u.desc.clone()));
+                            info.push((tr("state", "estado").to_string(), u.state.clone()));
+                            info.push((tr("scope", "escopo").to_string(), if u.user { tr("user", "usuário") } else { tr("system", "sistema") }.to_string()));
+                            info.push((tr("description", "descrição").to_string(), u.desc.clone()));
                         }
                         None => sumiu = true,
                     },
@@ -2120,7 +2206,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             let mut lines: Vec<Line> = Vec::new();
             if sumiu {
                 lines.push(Line::from(Span::styled(
-                    " alvo sumiu do snapshot — Esc volta",
+                    tr(" target vanished from snapshot — Esc goes back", " alvo sumiu do snapshot — Esc volta"),
                     Style::new().fg(c_red()),
                 )));
             }
@@ -2132,7 +2218,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             }
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
-                " ações — ↑↓ move · Enter executa · clique fora fecha",
+                tr(" actions — ↑↓ move · Enter runs · click outside closes", " ações — ↑↓ move · Enter executa · clique fora fecha"),
                 Style::new().fg(c_gray()),
             )));
             for (i, a) in acts.iter().enumerate() {
@@ -2160,7 +2246,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             let body = box_title(
                 f,
                 r,
-                " terminal — 'ajuda' lista comandos · Esc fecha ",
+                " theme terminal — 'help' lists commands · Esc closes ",
                 c_cy(),
             );
             let keep = h.saturating_sub(4) as usize;
@@ -2239,7 +2325,7 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
             Style::new().fg(cpu_col).add_modifier(Modifier::BOLD),
         ),
         Span::styled(format!(" {spark}"), Style::new().fg(cpu_col)),
-        Span::styled("  1s por ponto", Style::new().fg(c_gray())),
+        Span::styled(tr(" 1s per point", " 1s por ponto"), Style::new().fg(c_gray())),
     ]));
 
     // pizza geral — 1 cor por coisa; cada partição de disco com cor própria
@@ -2265,7 +2351,7 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
     parts.push((snap.dk_total, c_yel()));
     legend.push(Span::styled("■ docker", Style::new().fg(c_yel())));
     legend.push(Span::raw(" "));
-    legend.push(Span::styled("▒ livre", Style::new().fg(c_gray())));
+    legend.push(Span::styled(tr("▒ free", "▒ livre"), Style::new().fg(c_gray())));
     lines.push(Line::from(vec![
         Span::styled(" total pc ", Style::new().fg(c_cy()).add_modifier(Modifier::BOLD)),
         Span::from(" "),
@@ -2277,7 +2363,7 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
 
     // ram por coisa (processos) — clicável, pizza por quota de memória
     lines.push(Line::from(Span::styled(
-        " ram por coisa — duplo-clique/Enter pra kill",
+        tr(" ram by process — double-click/Enter to kill", " ram por coisa — duplo-clique/Enter pra kill"),
         Style::new().fg(c_mag()).add_modifier(Modifier::BOLD),
     )));
     for (i, p) in snap.procs.iter().take(n_p).enumerate() {
@@ -2299,7 +2385,7 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
     // ssd por coisa
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        " ssd por coisa",
+        tr(" ssd by mount", " ssd por coisa"),
         Style::new().fg(c_mag()).add_modifier(Modifier::BOLD),
     )));
     for (i, (target, size, used)) in pc.mounts.iter().enumerate().take(4) {
@@ -2317,9 +2403,10 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
     }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
-        format!(
+        tr1(
+            " docker total: {} — 'd' opens the disk popup",
             " docker total: {} — 'd' abre o popup de disco",
-            fmt_size(snap.dk_total)
+            &fmt_size(snap.dk_total)
         ),
         Style::new().fg(c_yel()),
     )));
@@ -2353,7 +2440,7 @@ mod tests {
 
 fn main() {
     if std::env::args().any(|s| s == "--version") {
-        println!("ratscope 0.9 — shimmer · tema pixel · terminal de tema (:) · detalhes por alvo · pause/reload/kill -9/status");
+        println!("ratscope 0.10 — pixel-art TUI · theme terminal · per-target details · pause/reload/kill -9/status");
         return;
     }
     run_and_exit();
