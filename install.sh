@@ -45,9 +45,11 @@ trap cleanup EXIT
 printf '%s' "$HIDE"
 printf '\n'
 # logo: same pixel glyphs as the app, ▀ half-blocks, mint→teal→dark gradient
-python3 - "$E" <<'PYEOF' 2>/dev/null || true
+python3 - "$E" "$(stty size </dev/tty 2>/dev/null | awk '{print $2}')" <<'PYEOF' 2>/dev/null || true
 import sys
 E = sys.argv[1] if len(sys.argv) > 1 else "\033"
+cols = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 80
+WIDE = cols >= 114  # 2 columns per pixel, like the app — fixes stretched glyphs
 G = [
  ("r",4,[".####.","###...","##....","##....","##....","##....","##....","##...."]),
  ("a",4,[".####.","....##","....##",".####.","##..##","##..##","##..##",".####."]),
@@ -74,7 +76,7 @@ for pair in range(H//2):
     for cx in range(W):
         t=grid[pair*2][cx]; b=grid[pair*2+1][cx]
         if not t and not b:
-            out.append(" "); continue
+            out.append(" " * (2 if WIDE else 1)); continue
         if t:
             fgc=grad[pair*2]; ch="▀"
         else:
@@ -83,8 +85,8 @@ for pair in range(H//2):
         if t and b:
             bgc=grad[pair*2+1]
             s+=f"{E}[48;2;{bgc[0]};{bgc[1]};{bgc[2]}m"
-        out.append(s+ch)
-    print("  "+"".join(out)+E+"[39;49m")
+        out.append(s + ch * (2 if WIDE else 1))
+    print("  " + "".join(out) + E + "[39;49m")
 PYEOF
 printf '\n'
 printf '  %spixel-art dashboard for docker, systemd, ports and hardware%s\n\n' "$GRAY" "$RESET"
@@ -101,9 +103,9 @@ if [ -z "$LANG_CHOICE" ] && [ "$HAS_TTY" = 1 ]; then
     draw_lang() {
         printf '%s' "${E}[2A${E}[J"
         if [ "$sel" = 1 ]; then
-            printf '  %s❯ english%s\n  %s  português%s\n\n' "$MINT" "$RESET" "$GRAY" "$RESET"
+            printf '  %s❯ english%s\n  %s  português%s\n' "$MINT" "$RESET" "$GRAY" "$RESET"
         else
-            printf '  %s  english%s\n  %s❯ português%s\n\n' "$GRAY" "$RESET" "$MINT" "$RESET"
+            printf '  %s  english%s\n  %s❯ português%s\n' "$GRAY" "$RESET" "$MINT" "$RESET"
         fi
     }
     printf '  \n\n'
@@ -128,6 +130,7 @@ if [ -z "$LANG_CHOICE" ] && [ "$HAS_TTY" = 1 ]; then
     done
     stty "$OLD_STTY" </dev/tty 2>/dev/null || true
     [ "$sel" = 1 ] && LANG_CHOICE=en || LANG_CHOICE=pt
+    printf '\n'
 elif [ -z "$LANG_CHOICE" ]; then
     LANG_CHOICE=en
     printf '  %slanguage / idioma%s  english  %s(RATSCOPE_LANG=pt for português)%s\n\n' "$TEAL" "$RESET" "$GRAY" "$RESET"
@@ -177,8 +180,8 @@ while kill -0 "$PID" 2>/dev/null; do
     if [ "${TOTAL:-0}" -gt 0 ] 2>/dev/null; then
         FILL=$((CUR * BAR_W / TOTAL))
         PCT=$((CUR * 100 / TOTAL))
-        BAR=$(awk -v n="$FILL" 'BEGIN{for(i=0;i<n;i++)printf "▰"}')$(awk -v n="$((BAR_W - FILL))" 'BEGIN{for(i=0;i<n;i++)printf "▱"}')
-        printf '\r  %s%s%s  %3d%%  %s/%s MB  ' "$MINT" "$BAR" "$RESET" "$PCT" "$(mb "$CUR")" "$(mb "$TOTAL")"
+        BAR=$(awk -v n="$FILL" 'BEGIN{for(i=0;i<n;i++)printf "█"}')
+        printf '\r  %s%s%s%*s  %3d%%  %s/%s MB  ' "$MINT" "$BAR" "$RESET" "$((BAR_W - FILL))" "" "$PCT" "$(mb "$CUR")" "$(mb "$TOTAL")"
     else
         case $((i % 4)) in
             0) S=▘ ;; 1) S=▝ ;; 2) S=▗ ;; 3) S=▖ ;;
@@ -190,7 +193,7 @@ done
 wait "$PID" || die "download failed — check your connection and try again"
 CUR=$(wc -c < "$TMP/dl")
 if [ "${TOTAL:-0}" -gt 0 ] 2>/dev/null; then
-    BAR=$(awk -v n="$BAR_W" 'BEGIN{for(i=0;i<n;i++)printf "▰"}')
+    BAR=$(awk -v n="$BAR_W" 'BEGIN{for(i=0;i<n;i++)printf "█"}')
     printf '\r  %s%s%s  100%%  %s/%s MB\n\n' "$MINT" "$BAR" "$RESET" "$(mb "$CUR")" "$(mb "$TOTAL")"
 else
     printf '\r  \033[K\n\n'
