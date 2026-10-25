@@ -67,8 +67,9 @@ for _,off,rows in G:
             if ch=="#": grid[off+ry][x+cx]=1
     x+=7
 def lerp(a,b,f): return tuple(round(a[i]+(b[i]-a[i])*f) for i in range(3))
-A,B,C=(198,230,224),(83,143,135),(39,68,66)
-grad=[lerp(A,B,y/7) if y<7 else lerp(B,C,(y-7)/7) for y in range(H)]
+# faixas sólidas distintas (não gradiente contínuo — cores vizinhas se misturam no terminal)
+BANDS=[(198,230,224),(127,216,200),(79,184,168),(46,143,132)]
+grad=[BANDS[min(y*4//H,3)] for y in range(H)]
 for y in range(H):
     fg = grad[y]
     row = "".join("█" if grid[y][cx] else " " for cx in range(W)).rstrip()
