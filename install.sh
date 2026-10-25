@@ -73,9 +73,17 @@ for pair in range(H//2):
     out=[]
     for cx in range(W):
         t=grid[pair*2][cx]; b=grid[pair*2+1][cx]
-        s=E+"[39m" if not t else f"{E}[38;2;{grad[pair*2][0]};{grad[pair*2][1]};{grad[pair*2][2]}m"
-        s+=E+"[49m" if not b else f"{E}[48;2;{grad[pair*2+1][0]};{grad[pair*2+1][1]};{grad[pair*2+1][2]}m"
-        out.append(s+"▀")
+        if not t and not b:
+            out.append(" "); continue
+        if t:
+            fgc=grad[pair*2]; ch="▀"
+        else:
+            fgc=grad[pair*2+1]; ch="▄"
+        s=f"{E}[38;2;{fgc[0]};{fgc[1]};{fgc[2]}m"
+        if t and b:
+            bgc=grad[pair*2+1]
+            s+=f"{E}[48;2;{bgc[0]};{bgc[1]};{bgc[2]}m"
+        out.append(s+ch)
     print("  "+"".join(out)+E+"[39;49m")
 PYEOF
 printf '\n'
@@ -85,35 +93,36 @@ printf '  %spixel-art dashboard for docker, systemd, ports and hardware%s\n\n' "
 LANG_CHOICE="${RATSCOPE_LANG:-}"
 if [ -z "$LANG_CHOICE" ] && [ "$HAS_TTY" = 1 ]; then
     printf '  %slanguage / idioma%s\n\n' "$TEAL" "$RESET"
+    # -icanon -echo: bytes arrive unbuffered, no echo, Ctrl-C still works
+    stty -icanon -echo </dev/tty 2>/dev/null || true
     sel=1
-    draw_lang() {
-        printf '%s' "${E}[3A${E}[J"
-        if [ "$sel" = 1 ]; then
-            printf '  %s❯ english%s\n    português\n\n' "$MINT" "$RESET"
-        else
-            printf '    english\n  %s❯ português%s\n\n' "$MINT" "$RESET"
-        fi
-    }
-    printf '  \n  \n\n'
-    draw_lang
-    stty raw -echo </dev/tty 2>/dev/null || true
     ESC=$(printf '\033')
     CR=$(printf '\r')
+    draw_lang() {
+        printf '%s' "${E}[2A${E}[J"
+        if [ "$sel" = 1 ]; then
+            printf '  %s❯ english%s\n  %s  português%s\n\n' "$MINT" "$RESET" "$GRAY" "$RESET"
+        else
+            printf '  %s  english%s\n  %s❯ português%s\n\n' "$GRAY" "$RESET" "$MINT" "$RESET"
+        fi
+    }
+    printf '  \n\n'
+    draw_lang
     while :; do
         k=$(dd bs=1 count=1 <&3 2>/dev/null || true)
         if [ "$k" = "$ESC" ]; then
             rest=$(dd bs=1 count=2 <&3 2>/dev/null || true)
             case "$rest" in
-                '[A') sel=1 ;;
-                '[B') sel=2 ;;
+                '[A'|'OA') sel=1 ;;
+                '[B'|'OB') sel=2 ;;
                 *) break ;; # esc alone: accept current
             esac
             draw_lang
         elif [ "$k" = "$CR" ] || [ -z "$k" ]; then
             break
-        elif [ "$k" = "k" ]; then
+        elif [ "$k" = "k" ] || [ "$k" = "1" ]; then
             sel=1; draw_lang
-        elif [ "$k" = "j" ]; then
+        elif [ "$k" = "j" ] || [ "$k" = "2" ]; then
             sel=2; draw_lang
         fi
     done
