@@ -14,7 +14,7 @@ use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::border;
 use ratatui::text::{Line, Span};
@@ -1596,6 +1596,117 @@ fn shimmer(text: &str, at: Instant, base: Color) -> Vec<Span<'static>> {
 
 static BOOT: OnceLock<Instant> = OnceLock::new();
 
+// ---- logo "ratscope" — glifos pixel-art desenhados à mão, renderizados com ▀ ----
+// grade lógica: 14 linhas × 47 colunas; cada célula do terminal = 2 pixels verticais
+// (offset = linhas vazias acima; baseline dos glifos x-height = linha 11)
+const GLYPHS: &[(&str, usize, &[&str])] = &[
+    (
+        "r",
+        4,
+        &["#.##.", "##..#", "#....", "#....", "#....", "#....", "#....", "#...."],
+    ),
+    (
+        "a",
+        4,
+        &[".###.", "....#", "....#", ".###.", "#...#", "#...#", "#...#", ".####"],
+    ),
+    (
+        "t",
+        2,
+        &[
+            "..#..", "..#..", "..#..", "####.", "..#..", "..#..", "..#..", "..#..", "..##.", "..##.",
+        ],
+    ),
+    (
+        "s",
+        4,
+        &[".####", "#....", "#....", ".###.", "....#", "....#", "....#", "####."],
+    ),
+    (
+        "c",
+        4,
+        &[".####", "#....", "#....", "#....", "#....", "#....", "#....", ".####"],
+    ),
+    (
+        "o",
+        4,
+        &[".###.", "#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+    ),
+    (
+        "p",
+        4,
+        &["####.", "#...#", "#...#", "#...#", "####.", "#....", "#....", "#....", "#....", "#...."],
+    ),
+    (
+        "e",
+        4,
+        &[".###.", "#...#", "#...#", "#####", "#....", "#....", "#...#", ".###."],
+    ),
+];
+
+fn logo_grid() -> Vec<Vec<bool>> {
+    let mut grid = vec![vec![false; 47]; 14];
+    let mut x = 0usize;
+    for (_, off, rows) in GLYPHS {
+        for (ry, row) in rows.iter().enumerate() {
+            for (cx, ch) in row.chars().enumerate() {
+                if ch == '#' {
+                    grid[off + ry][x + cx] = true;
+                }
+            }
+        }
+        x += 6; // 5 de glifo + 1 de respiro
+    }
+    grid
+}
+
+// desenha a logo centrada; devolve a área ocupada (None se não cabe)
+fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
+    const W: usize = 47; // 8 letras × 5 + 7 espaços
+    const ROWS: usize = 14;
+    if (area.width as usize) < W || (area.height as usize) < ROWS / 2 + 2 {
+        return None;
+    }
+    let grid = logo_grid();
+    // gradiente mint → teal → verde escuro por linha lógica
+    let a = Color::Rgb(198, 230, 224);
+    let b = Color::Rgb(83, 143, 135);
+    let c = Color::Rgb(39, 68, 66);
+    let grad: Vec<Color> = (0..ROWS)
+        .map(|y| {
+            if y < 7 {
+                lerp(a, b, y as f32 / 7.0)
+            } else {
+                lerp(b, c, (y - 7) as f32 / 7.0)
+            }
+        })
+        .collect();
+    let bg = c_bg();
+    let mut lines: Vec<Line> = Vec::with_capacity(ROWS / 2);
+    for pair in 0..ROWS / 2 {
+        let mut spans = Vec::with_capacity(W);
+        for cx in 0..W {
+            let top = grid[pair * 2][cx];
+            let bot = grid[pair * 2 + 1][cx];
+            spans.push(Span::styled(
+                "▀",
+                Style::new()
+                    .fg(if top { grad[pair * 2] } else { bg })
+                    .bg(if bot { grad[pair * 2 + 1] } else { bg }),
+            ));
+        }
+        lines.push(Line::from(spans));
+    }
+    let r = Rect {
+        x: area.x + (area.width.saturating_sub(W as u16)) / 2,
+        y: area.y + (area.height.saturating_sub(ROWS as u16 / 2 + 2)) / 2,
+        width: W as u16,
+        height: ROWS as u16 / 2,
+    };
+    f.render_widget(Paragraph::new(lines), r);
+    Some(r)
+}
+
 fn spin(at: Instant) -> &'static str {
     SPINNER[(at.elapsed().as_millis() / 80) as usize % SPINNER.len()]
 }
@@ -1637,14 +1748,30 @@ fn draw(f: &mut Frame, st: &mut State) {
     let Some(snap) = st.snap.as_ref() else {
         let b = pblock(c_cy());
         f.render_widget(&b, st.area);
-        f.render_widget(
-            Paragraph::new(Line::from(shimmer(
+        let inner = b.inner(st.area);
+        let msg = || {
+            Line::from(shimmer(
                 "esperando primeira leitura…",
                 *BOOT.get_or_init(Instant::now),
                 c_cy(),
-            ))),
-            b.inner(st.area),
-        );
+            ))
+        };
+        match draw_logo(f, inner) {
+            Some(lr) => {
+                f.render_widget(
+                    Paragraph::new(msg()).alignment(Alignment::Center),
+                    Rect {
+                        x: inner.x,
+                        y: lr.y + lr.height + 1,
+                        width: inner.width,
+                        height: 1,
+                    },
+                );
+            }
+            None => {
+                f.render_widget(Paragraph::new(msg()), inner);
+            }
+        }
         return;
     };
 
@@ -2198,6 +2325,15 @@ mod tests {
         assert_eq!(parse_hex("f0a"), Some(Color::Rgb(255, 0, 170)));
         assert_eq!(parse_hex("zzz"), None);
         assert_eq!(parse_hex("#12345"), None);
+    }
+    #[test]
+    fn logo_legivel() {
+        let g = logo_grid();
+        for row in &g {
+            println!("{}", row.iter().map(|p| if *p { '█' } else { ' ' }).collect::<String>());
+        }
+        assert_eq!(g.len(), 14);
+        assert!(g.iter().any(|r| r.iter().any(|p| *p)));
     }
 }
 
