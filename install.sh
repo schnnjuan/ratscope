@@ -58,24 +58,23 @@ G = [
  ("p",4,["#####.","##..##","##..##","##..##","#####.","##....","##....","##....","##....","##...."]),
  ("e",4,[".####.","##..##","##..##","######","##....","##....","##..##",".####."]),
 ]
-W,H=55,14
+W,H=48,14
 grid=[[0]*W for _ in range(H)]
 x=0
 for _,off,rows in G:
     for ry,row in enumerate(rows):
         for cx,ch in enumerate(row):
             if ch=="#": grid[off+ry][x+cx]=1
-    x+=7
+    x+=6
 def lerp(a,b,f): return tuple(round(a[i]+(b[i]-a[i])*f) for i in range(3))
 top=(198,230,224); mid=(83,143,135); base=(39,68,66)
 grad=[lerp(top,mid,min(y/7.0,1.0)) if y<7 else lerp(mid,base,(y-7)/7.0) for y in range(H)]
 for pair in range(H//2):
     spans=[]
     for cx in range(W):
-        t=grid[pair*2][cx]; b=grid[pair*2+1][cx]
+        t=grid[pair*2][cx]
         fg=grad[pair*2] if t else base
-        bg=grad[pair*2+1] if b else base
-        spans.append(f"{E}[38;2;{fg[0]};{fg[1]};{fg[2]}m{E}[48;2;{bg[0]};{bg[1]};{bg[2]}m▀")
+        spans.append(f"{E}[38;2;{fg[0]};{fg[1]};{fg[2]}m▀")
     print(f"{E}[39;49m" + "".join(spans) + f"{E}[39;49m")
 PYEOF
 printf '\n'
