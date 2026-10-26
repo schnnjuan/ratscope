@@ -44,8 +44,59 @@ trap cleanup EXIT
 # ---- header ----
 printf '%s' "$HIDE"
 printf '\n'
-# logo: same glyphs as the app (GLYPHS array), half-block ▀ so 2 pixel rows per terminal line
-python3 - "$E" <<'PYEOF' 2>/dev/null || true
+# logo: real PNG via kitty/ghostty/wezterm/iterm2 image protocols; ASCII fallback
+LOGO_B64=$(cat <<'EOB' | tr -d '\n'
+iVBORw0KGgoAAAANSUhEUgAAApQAAACoCAYAAABe6H7DAAAABmJLR0QA/wD/AP+gvaeTAAAE50lE
+QVR4nO3dsWpUQRTHYVf2jbTRygfQKiCKTQothIAINkKsFG0UsbIxYCOKkEorKytt9FkMJAa0WTux
+Cgz/O94zud9XRz337MT9cZs5cwYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAkazmHgDm9Ob7103Pv//GuQt+xwA49c7OPQAAAGMTlAAA
+RAQlAAARQQkAQERQAgAQEZQAAEQEJQAAEUEJAEBEUAIAEBGUAABEBCUAAJH13APAnA6ODuceAQCG
+5w0lAAARQQkAQERQAgAQEZQAAEQEJQAAEUEJAEBEUAIAEBGUAABEBCUAABFBCQBARFACABBZtf6B
+Rx/3Nz0G+V92L281P3NP9nmy0ffTm/1Pyz6nZZ8ns59p+X6fVus+vaEEACAiKAEAiAhKAAAighIA
+gIigBAAgIigBAIgISgAAIoISAICIoAQAICIoAQCICEoAACKre+9el7pr8um17VJ3cS5N7/NQ7fP1
+vNOq9ry92ee0Rt9ntfmrzdOq2vzV5mnVe35vKAEAiAhKAAAighIAgIigBAAgIigBAIgISgAAIoIS
+AICIoAQAICIoAQCICEoAACKCEgCAyPrH4VHXf2Dv1s6i7qIdXe/zUI3nJWGf0xp9n9XmrzZPq2rz
+V5unVe/5vaEEACAiKAEAiAhKAAAighIAgIigBAAgIigBAIgISgAAIoISAICIoAQAICIoAQCICEoA
+ACLrg6PDuWdYtK3nTzZzz/Cv1vOwf/f+0He1L+38793aafq8Ws9ntfPc+3wu7fz0Nvo+q81fbZ5W
+1ebvPU/v/z97z+8NJQAAEUEJAEBEUAIAEBGUAABEBCUAABFBCQBARFACABARlAAARAQlAAARQQkA
+QERQAgAQWf/+eTz3DKfKlUcPmu7ibN3/h92HXe8mbp2/9ed7z9/K+T9Ztbvaq51P52dao++z2vy9
+52n9/WpV7fux9z6rfT+28oYSAICIoAQAICIoAQCICEoAACKCEgCAiKAEACAiKAEAiAhKAAAighIA
+gIigBAAgIigBAIisfx3Xunt0dKPvc/T5Wy3teUdX7fOqNs/oRt9ntfl7z/Pp8bOh755uVe3zrcYb
+SgAAIoISAICIoAQAICIoAQCICEoAACKCEgCAiKAEACAiKAEAiAhKAAAighIAgIigBAAgsv79092U
+Uxp9n6PP36r38166c3vT8vOfX7xc1N24raqdz2rzjG70fVabv9o8oxt9n63fR628oQQAICIoAQCI
+CEoAACKCEgCAiKAEACAiKAEAiAhKAAAighIAgIigBAAgIigBAIgISgAAIquLN7e73u345dVrdxOf
+oPf+exv98622/977rPa8vVU7n/Y/rdH3Ofp+qv1+VbO08+kNJQAAEUEJAEBEUAIAEBGUAABEBCUA
+ABFBCQBARFACABARlAAARAQlAAARQQkAQERQAgAQcQ8nAJxC569f7XqX9Le37zUEf3lDCQBARFAC
+ABARlAAARAQlAAARQQkAQERQAgAQEZQAAEQEJQAAEUEJAEBEUAIAEBGUAABE1nMPAABM79fx8dwj
+sCDeUAIAEBGUAABEBCUAABFBCQBARFACABARlAAARAQlAAARQQkAQERQAgAQEZQAAEQEJQAAkT/d
+PzixGoW1swAAAABJRU5ErkJggg==
+EOB
+)
+IMG=ascii
+case "${TERM_PROGRAM:-}" in WezTerm*|iTerm.app) IMG=iterm ;; esac
+if [ "$IMG" = ascii ]; then
+    case "${TERM:-}" in *kitty*|*ghostty*) IMG=kitty ;; esac
+fi
+if [ "$IMG" = ascii ]; then
+    [ -n "${KITTY_WINDOW_ID:-}" ] && IMG=kitty
+    [ -n "${GHOSTTY_RESOURCES_DIR:-}" ] && IMG=kitty
+fi
+[ -n "${TMUX:-}" ] && IMG=ascii
+if [ "$IMG" = kitty ]; then
+    printf '%s' "$LOGO_B64" | fold -w 4000 | awk -v E="$E" '
+        { c[NR]=$0 }
+        END {
+            for (i=1;i<=NR;i++) {
+                if (i==1) printf "%s_Gf=100,a=T,q=1,c=55,m=%d;%s%s\\", E, (i==NR?0:1), c[i], E
+                else      printf "%s_Gm=%d;%s%s\\", E, (i==NR?0:1), c[i], E
+            }
+            printf "\n"
+        }'
+elif [ "$IMG" = iterm ]; then
+    printf '%s]1337;File=inline=1;width=55;size=%d:%s\a\n' "$E" $(( ${#LOGO_B64} * 3 / 4 )) "$LOGO_B64"
+else
+    # ASCII fallback: dedicated 7-row pixel font, svg gradient, full blocks only
+    python3 - "$E" <<'PYEOF' 2>/dev/null || true
 import sys
 E = sys.argv[1] if len(sys.argv) > 1 else "\033"
 G = [
@@ -75,6 +126,8 @@ for y in range(H):
     line="".join((f"{E}[38;2;{c[0]};{c[1]};{c[2]}m█" if p else " ") for p in grid[y])
     print(f"{E}[39;49m"+line+f"{E}[39;49m")
 PYEOF
+fi
+
 printf '\n'
 printf '  %spixel-art dashboard for docker, systemd, ports and hardware%s\n\n' "$GRAY" "$RESET"
 
