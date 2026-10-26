@@ -73,8 +73,11 @@ for pair in range(H//2):
     spans=[]
     for cx in range(W):
         t=grid[pair*2][cx]
-        fg=grad[pair*2] if t else base
-        spans.append(f"{E}[38;2;{fg[0]};{fg[1]};{fg[2]}m▀")
+        if t:
+            fg=grad[pair*2]
+            spans.append(f"{E}[38;2;{fg[0]};{fg[1]};{fg[2]}m▀")
+        else:
+            spans.append(" ")
     print(f"{E}[39;49m" + "".join(spans) + f"{E}[39;49m")
 PYEOF
 printf '\n'
