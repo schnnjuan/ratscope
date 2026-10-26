@@ -2858,7 +2858,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             hint,
             ..
         } => {
-            let h = 20u16.min(st.area.height.saturating_sub(2));
+            let h = 24u16.min(st.area.height.saturating_sub(2));
             let r = Rect {
                 x: st.area.x,
                 y: st.area.y + st.area.height - h,

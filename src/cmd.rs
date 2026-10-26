@@ -346,99 +346,15 @@ fn gauge_kind(k: &str) -> Option<GaugeKind> {
 // ---- linhas de resposta (help, show, hosts) ----
 
 fn help_lines() -> Vec<String> {
-    vec![
-        tr("**Appearance**", "**Aparência**").to_string(),
-        format!(
-            "  /{:<28} — {}",
-            "theme <name>",
-            tr(
-                "set theme (pixel, dracula, gruvbox, nord, catppuccin, tokyo, solarized, synthwave, matrix, candy, ember, mono, carmesim)",
-                "define tema (pixel, dracula, gruvbox, nord, catppuccin, tokyo, solarized, synthwave, matrix, candy, ember, mono, carmesim)"
-            )
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "bg <hex>",
-            tr(
-                "background color (e.g. /bg #10101A)",
-                "cor de fundo (ex: /bg #10101A)"
-            )
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "color <name> <hex>",
-            tr(
-                "set color: cyan pink green yellow red gray blue peach orange white black",
-                "define cor: cyan pink green yellow red gray blue peach orange white black"
-            )
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "border <pixel|line|double|thick>",
-            tr("border style", "estilo de borda")
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "gauge <square|circle>",
-            tr("gauge style", "estilo de medidor")
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "reset",
-            tr("back to pixel theme", "volta ao tema pixel")
-        ),
-        String::new(),
-        tr("**Display**", "**Exibição**").to_string(),
-        format!(
-            "  /{:<28} — {}",
-            "show",
-            tr("show current theme values", "mostra valores do tema atual")
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "lang <en|pt>",
-            tr("interface language", "idioma da interface")
-        ),
-        String::new(),
-        tr("**Docker Hosts**", "**Hosts Docker**").to_string(),
-        format!(
-            "  /{:<28} — {}",
-            "hosts",
-            tr(
-                "list configured docker hosts",
-                "lista hosts docker configurados"
-            )
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "hosts add <endpoint>",
-            tr(
-                "add docker host (tcp://host:2376 or ssh://user@host)",
-                "adiciona host docker (tcp://host:2376 ou ssh://user@host)"
-            )
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "hosts rm <endpoint>",
-            tr("remove docker host", "remove host docker")
-        ),
-        format!(
-            "  /{:<28} — {}",
-            "hosts set <endpoint>",
-            tr("set active docker host", "define host docker ativo")
-        ),
-        String::new(),
-        tr("**Config**", "**Config**").to_string(),
-        format!(
-            "  /{:<28} — {}",
-            "save",
-            tr(
-                "write ~/.config/ratscope/config.json",
-                "salva ~/.config/ratscope/config.json"
-            )
-        ),
-        format!("  /{:<28} — {}", "help", tr("this help", "esta ajuda")),
-    ]
+    // gerado do catálogo — nunca dessincroniza das sugestões
+    let mut v: Vec<String> = SLASH_CMDS
+        .iter()
+        .map(|(c, d)| format!("  {c} — {d}"))
+        .collect();
+    v.push(
+        "  aliases: tema, fundo, cor, borda, medidor, ver, salvar, ajuda, h".to_string(),
+    );
+    v
 }
 
 fn show_lines() -> Vec<String> {
@@ -782,6 +698,15 @@ mod tests {
         assert!(exec("help").effects.is_empty());
         assert!(!exec("help").lines.is_empty());
         assert!(exec("show").effects.is_empty());
+    }
+
+    #[test]
+    fn help_lists_every_command() {
+        let h = help_lines().join("\n");
+        for (c, _) in SLASH_CMDS {
+            assert!(h.contains(c), "help não lista {c}");
+        }
+        assert!(h.contains("aliases"));
     }
 
     #[test]
