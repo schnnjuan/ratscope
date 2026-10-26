@@ -609,7 +609,6 @@ struct ProcRow {
     pid: u32,
     comm: String,
     rss_b: u64,
-    cpu_pct: f32,
 }
 
 struct Pc {
@@ -1056,12 +1055,11 @@ fn procs_listado(n: usize) -> Vec<ProcRow> {
         let pid: u32 = w.next()?.parse().ok()?;
         let comm = w.next()?.to_string();
         let rss: u64 = w.next()?.parse().ok()?; // kB
-        let cpu: f32 = w.next().unwrap_or("0").parse().unwrap_or(0.0);
+        let _cpu: f32 = w.next().unwrap_or("0").parse().unwrap_or(0.0);
         (rss > 0).then_some(ProcRow {
             pid,
             comm,
             rss_b: rss * 1024,
-            cpu_pct: cpu,
         })
     })
     .skip(1) // seed: pula o próprio ratscope
@@ -1134,7 +1132,7 @@ fn snapshot() -> Snapshot {
         temp_c,
         _mem_available: ma,
     };
-    let procs = procs_listado(50);
+    let procs = procs_listado(12);
     Snapshot {
         containers,
         units: units(),
@@ -1338,16 +1336,7 @@ fn over_nprocs(area: Rect) -> usize {
     (area.height.saturating_sub(20) as usize).min(8)
 }
 
-/// início da janela deslizante da lista de processos — mantém a seleção visível
-fn proc_window(total: usize, n_p: usize, sel: usize) -> usize {
-    if n_p == 0 || total <= n_p {
-        0
-    } else {
-        sel.saturating_sub(n_p / 2).min(total - n_p)
-    }
-}
-
-fn over_hit(area: Rect, cy: u16, snap: Option<&Snapshot>, sel_over: usize) -> Option<usize> {
+fn over_hit(area: Rect, cy: u16, snap: Option<&Snapshot>) -> Option<usize> {
     let n = over_nprocs(area);
     if n == 0 {
         return None;
@@ -1357,12 +1346,9 @@ fn over_hit(area: Rect, cy: u16, snap: Option<&Snapshot>, sel_over: usize) -> Op
     if rel < 0 {
         return None;
     }
-    let s = snap?;
-    if rel as usize >= n {
-        return None;
-    }
-    let idx = proc_window(s.procs.len(), n, sel_over) + rel as usize;
-    (idx < s.procs.len()).then_some(idx)
+    let idx = rel as usize;
+    let len = snap.map_or(0, |s| s.procs.len().min(n));
+    (idx < len).then_some(idx)
 }
 
 // ---- helpers de estado ----
@@ -2001,8 +1987,7 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
                             .map(|i| (Focus::Ports, i))
                     }
                     Focus::Overview => {
-                        over_hit(areas[1], my, st.snap.as_ref(), st.sel_over)
-                            .map(|i| (Focus::Overview, i))
+                        over_hit(areas[1], my, st.snap.as_ref()).map(|i| (Focus::Overview, i))
                     }
                     _ => table_hit(areas[1], my, st.scroll_units, cur_len(st, Focus::Units), vu)
                         .map(|i| (Focus::Units, i)),
@@ -3334,31 +3319,21 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
     lines.push(Line::from(rleg));
     lines.push(Line::from(""));
 
-    // ram por coisa (processos) — colunas alinhadas, janela deslizante, clicável
-    let total_p = snap.procs.len();
-    let start = proc_window(total_p, n_p, sel_over);
-    lines.push(Line::from(vec![
-        Span::styled(
-            tr(
-                " ram by process — ↑↓ navigate · Enter/double-click to kill",
-                " ram por coisa — ↑↓ navega · Enter/duplo-clique pra kill",
-            ),
-            Style::new().fg(c_mag()).add_modifier(Modifier::BOLD),
+    // ram por coisa (processos) — clicável, pizza por quota de memória
+    lines.push(Line::from(Span::styled(
+        tr(
+            " ram by process — double-click/Enter to kill",
+            " ram por coisa — duplo-clique/Enter pra kill",
         ),
-        Span::styled(
-            format!("  {}/{}", total_p.min(sel_over + 1), total_p),
-            Style::new().fg(c_gray()),
-        ),
-    ]));
+        Style::new().fg(c_mag()).add_modifier(Modifier::BOLD),
+    )));
     if snap.procs.is_empty() {
         lines.push(Line::from(Span::styled(
             tr("  (no processes)", "  (nenhum processo)"),
             Style::new().fg(c_gray()),
         )));
     } else {
-        // colunas: pie + pid + nome (expande pro lado) + mem + cpu%
-        let name_w = inner_w.saturating_sub(28).max(10);
-        for (i, p) in snap.procs.iter().enumerate().skip(start).take(n_p) {
+        for (i, p) in snap.procs.iter().take(n_p).enumerate() {
         let frac = if pc.mem_total > 0 {
             p.rss_b as f64 / pc.mem_total as f64
         } else {
@@ -3370,13 +3345,10 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
         }
         lines.push(Line::from(Span::styled(
             format!(
-                " {} {:>7}  {:<nw$} {:>9} {:>4.1}%",
+                " {} {:<16} {:>9}",
                 pie(frac),
-                p.pid,
-                trunc(&p.comm, name_w),
-                fmt_size(p.rss_b),
-                p.cpu_pct,
-                nw = name_w,
+                trunc(&p.comm, 16),
+                fmt_size(p.rss_b)
             ),
             style,
         )));
@@ -3440,15 +3412,6 @@ mod tests {
         assert_eq!(parse_hex("f0a"), Some(Color::Rgb(255, 0, 170)));
         assert_eq!(parse_hex("zzz"), None);
         assert_eq!(parse_hex("#12345"), None);
-    }
-
-    #[test]
-    fn proc_window_slides() {
-        assert_eq!(proc_window(5, 8, 0), 0); // tudo cabe
-        assert_eq!(proc_window(20, 8, 0), 0);
-        assert_eq!(proc_window(20, 8, 10), 6); // seleção centrada
-        assert_eq!(proc_window(20, 8, 19), 12); // fim: clamp
-        assert_eq!(proc_window(20, 0, 5), 0); // sem espaço
     }
     #[test]
     fn logo_legivel() {
