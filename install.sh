@@ -44,37 +44,39 @@ trap cleanup EXIT
 # ---- header ----
 printf '%s' "$HIDE"
 printf '\n'
-# logo: same pixel glyphs as the app, ▀ half-blocks, mint→teal→dark gradient
+# logo: same glyphs as the app (GLYPHS array), half-block ▀ so 2 pixel rows per terminal line
 python3 - "$E" <<'PYEOF' 2>/dev/null || true
 import sys
 E = sys.argv[1] if len(sys.argv) > 1 else "\033"
 G = [
- ("r",2,[".###.","##..##","##..##","#####.","##..##","##..##","##..##"]),
- ("a",2,[".###.","....##","....##",".###..","##..##","##..##",".###.."]),
- ("t",1,["..##..","..##..","#####.","..##..","..##..","..##..","..##.."]),
- ("s",2,[".####.","##....","##....",".###..","....##","....##","####.."]),
- ("c",2,[".####.","##....","##....","##....","##....","##....",".####."]),
- ("o",2,[".###..","##..##","##..##","##..##","##..##","##..##",".###.."]),
- ("p",2,["#####.","##..##","##..##","#####.","##....","##....","##...."]),
- ("e",2,[".###..","##..##","##..##","#####.","##....","##..##",".###.."]),
+ ("r",4,[".####.","###...","##....","##....","##....","##....","##....","##...."]),
+ ("a",4,[".####.","....##","....##",".####.","##..##","##..##","##..##",".####."]),
+ ("t",2,["..##..","..##..","######","..##..","..##..","..##..","..##..","..##..","..###.","..###."]),
+ ("s",4,[".#####","##....","##....",".####.","....##","....##","....##","#####."]),
+ ("c",4,[".#####","##....","##....","##....","##....","##....","##....",".#####"]),
+ ("o",4,[".####.","##..##","##..##","##..##","##..##","##..##","##..##",".####."]),
+ ("p",4,["#####.","##..##","##..##","##..##","#####.","##....","##....","##....","##....","##...."]),
+ ("e",4,[".####.","##..##","##..##","######","##....","##....","##..##",".####."]),
 ]
-W,H=41,9
+W,H=55,14
 grid=[[0]*W for _ in range(H)]
 x=0
 for _,off,rows in G:
     for ry,row in enumerate(rows):
         for cx,ch in enumerate(row):
             if ch=="#": grid[off+ry][x+cx]=1
-    x+=5
+    x+=7
 def lerp(a,b,f): return tuple(round(a[i]+(b[i]-a[i])*f) for i in range(3))
-# faixas sólidas distintas (não gradiente contínuo — cores vizinhas se misturam no terminal)
-BANDS=[(198,230,224),(127,216,200),(79,184,168),(46,143,132)]
-grad=[BANDS[min(y*4//H,3)] for y in range(H)]
-for y in range(H):
-    fg = grad[y]
-    row = "".join("█" if grid[y][cx] else " " for cx in range(W)).rstrip()
-    if row:
-        print(f"  {E}[38;2;{fg[0]};{fg[1]};{fg[2]}m{row}{E}[39;49m")
+top=(198,230,224); mid=(83,143,135); base=(39,68,66)
+grad=[lerp(top,mid,min(y/7.0,1.0)) if y<7 else lerp(mid,base,(y-7)/7.0) for y in range(H)]
+for pair in range(H//2):
+    spans=[]
+    for cx in range(W):
+        t=grid[pair*2][cx]; b=grid[pair*2+1][cx]
+        fg=grad[pair*2] if t else base
+        bg=grad[pair*2+1] if b else base
+        spans.append(f"{E}[38;2;{fg[0]};{fg[1]};{fg[2]}m{E}[48;2;{bg[0]};{bg[1]};{bg[2]}m▀")
+    print(f"{E}[39;49m" + "".join(spans) + f"{E}[39;49m")
 PYEOF
 printf '\n'
 printf '  %spixel-art dashboard for docker, systemd, ports and hardware%s\n\n' "$GRAY" "$RESET"
