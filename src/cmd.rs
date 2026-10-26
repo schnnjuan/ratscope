@@ -77,19 +77,29 @@ pub enum Effect {
 
 /// resposta de um comando: linhas para o buffer do terminal + efeitos a aplicar
 pub struct Output {
-    pub lines: Vec<String>,
+    pub lines: Vec<Line>,
     pub effects: Vec<Effect>,
+}
+
+/// linha de resposta; `Ack` resolve o "✔ done/feito" DEPOIS que os efeitos
+/// foram aplicados — assim `lang pt` responde no idioma novo, como sempre foi
+pub enum Line {
+    Raw(String),
+    Ack,
 }
 
 impl Output {
     fn msg(lines: Vec<String>) -> Self {
         Self {
-            lines,
+            lines: lines.into_iter().map(Line::Raw).collect(),
             effects: vec![],
         }
     }
     fn ok() -> Self {
-        Self::msg(vec![tr("✔ done", "✔ feito").to_string()])
+        Self {
+            lines: vec![Line::Ack],
+            effects: vec![],
+        }
     }
     fn bad(m: &str) -> Self {
         Self::msg(vec![format!("✖ {m}")])
@@ -97,6 +107,16 @@ impl Output {
     fn with(mut self, e: Effect) -> Self {
         self.effects.push(e);
         self
+    }
+    /// linhas prontas pra exibir — chame DEPOIS de aplicar os efeitos
+    pub fn lines_resolved(&self) -> Vec<String> {
+        self.lines
+            .iter()
+            .map(|l| match l {
+                Line::Raw(s) => s.clone(),
+                Line::Ack => tr("✔ done", "✔ feito").to_string(),
+            })
+            .collect()
     }
 }
 
@@ -657,14 +677,14 @@ mod tests {
 
     #[test]
     fn unknown_command_errors() {
-        assert!(exec("nope").lines[0].starts_with("✖"));
+        assert!(exec("nope").lines_resolved()[0].starts_with("✖"));
         assert!(exec("nope").effects.is_empty());
     }
 
     #[test]
     fn theme_produces_effect() {
         let o = exec("theme gruvbox");
-        assert!(o.lines[0].starts_with("✔"));
+        assert!(o.lines_resolved()[0].starts_with("✔"));
         assert!(matches!(o.effects[0], Effect::Theme(_)));
         // slash prefix é opcional
         let o = exec("/tema nord");
@@ -674,22 +694,22 @@ mod tests {
     #[test]
     fn invalid_theme_is_rejected() {
         let o = exec("theme nope");
-        assert!(o.lines[0].starts_with("✖"));
+        assert!(o.lines_resolved()[0].starts_with("✖"));
         assert!(o.effects.is_empty());
     }
 
     #[test]
     fn invalid_hex_is_rejected() {
-        assert!(exec("bg zz").lines[0].starts_with("✖"));
-        assert!(exec("color cyan zz").lines[0].starts_with("✖"));
-        assert!(exec("color nope #10101A").lines[0].starts_with("✖"));
+        assert!(exec("bg zz").lines_resolved()[0].starts_with("✖"));
+        assert!(exec("color cyan zz").lines_resolved()[0].starts_with("✖"));
+        assert!(exec("color nope #10101A").lines_resolved()[0].starts_with("✖"));
     }
 
     #[test]
     fn lang_effect() {
         assert!(matches!(exec("lang pt").effects[0], Effect::Lang(Lang::Pt)));
         assert!(matches!(exec("lang en").effects[0], Effect::Lang(Lang::En)));
-        assert!(exec("lang xx").lines[0].starts_with("✖"));
+        assert!(exec("lang xx").lines_resolved()[0].starts_with("✖"));
     }
 
     #[test]
@@ -721,7 +741,7 @@ mod tests {
     #[test]
     fn host_validation_is_read_only() {
         // hosts rm sem host → erro, sem efeito
-        assert!(exec("hosts rm").lines[0].starts_with("✖"));
+        assert!(exec("hosts rm").lines_resolved()[0].starts_with("✖"));
         assert!(exec("hosts rm").effects.is_empty());
     }
 

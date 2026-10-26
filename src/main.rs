@@ -1730,11 +1730,11 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                 let cmd = std::mem::take(input);
                 if !cmd.trim().is_empty() {
                     out.push(format!("> {cmd}"));
-                    let res = cmd::exec(&cmd);
-                    out.extend(res.lines);
-                    for eff in res.effects {
+                    let mut res = cmd::exec(&cmd);
+                    for eff in res.effects.drain(..) {
                         cmd::apply(eff);
                     }
+                    out.extend(res.lines_resolved());
                     if !history.contains(&cmd) {
                         history.push(cmd);
                     }
