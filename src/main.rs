@@ -654,6 +654,8 @@ enum Mode {
         history_idx: Option<usize>,
         suggestions: Vec<String>,
         caret: usize,
+        hint: Option<String>,
+        tab_from: Option<String>,
     },
     Detail {
         tgt: Target,
@@ -1707,6 +1709,8 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     history_idx: None,
                     suggestions: Vec::new(),
                     caret: 0,
+                    hint: None,
+                    tab_from: None,
                 };
             }
             _ => {}
@@ -1719,8 +1723,12 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             history_idx,
             suggestions,
             caret,
+            hint,
+            tab_from,
         } => match k.code {
             KeyCode::Char(c) if k.modifiers.contains(KeyModifiers::CONTROL) => {
+                *hint = None;
+                *tab_from = None;
                 match c {
                     'a' => *caret = 0,
                     'e' => *caret = input.chars().count(),
@@ -1753,6 +1761,8 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                 let b = byte_idx(input, *caret);
                 input.insert(b, c);
                 *caret += 1;
+                *hint = None;
+                *tab_from = None;
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Backspace => {
@@ -1760,12 +1770,16 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     input.drain(byte_idx(input, *caret - 1)..byte_idx(input, *caret));
                     *caret -= 1;
                 }
+                *hint = None;
+                *tab_from = None;
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Delete => {
                 if *caret < input.chars().count() {
                     input.drain(byte_idx(input, *caret)..byte_idx(input, *caret + 1));
                 }
+                *hint = None;
+                *tab_from = None;
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Left => *caret = caret.saturating_sub(1),
@@ -1777,22 +1791,52 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             KeyCode::Home => *caret = 0,
             KeyCode::End => *caret = input.chars().count(),
             KeyCode::Tab => {
-                if let Some(cmd) = suggestions.first().and_then(|f| f.split(" — ").next()) {
-                    *input = cmd.to_string();
-                    *caret = input.chars().count();
-                    *suggestions = cmd::slash_suggestions(input);
+                *hint = None;
+                // completa a 1ª palavra; repetir Tab cicla entre os candidatos
+                // do prefixo original (guardado em tab_from)
+                if !input.trim().contains(char::is_whitespace) {
+                    let base = tab_from.clone().unwrap_or_else(|| input.clone());
+                    let m = cmd::tab_matches(&base);
+                    if !m.is_empty() {
+                        let h = input
+                            .trim_start()
+                            .trim_start_matches('/')
+                            .to_lowercase();
+                        let pick = match m.iter().position(|n| n == &h) {
+                            Some(i) => m[(i + 1) % m.len()].clone(),
+                            None => m[0].clone(),
+                        };
+                        *input = if base.trim_start().starts_with('/') {
+                            format!("/{pick}")
+                        } else {
+                            pick
+                        };
+                        *caret = input.chars().count();
+                        if tab_from.is_none() {
+                            *tab_from = Some(base);
+                        }
+                    }
                 }
+                *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Enter => {
                 let cmd = std::mem::take(input);
                 *caret = 0;
+                *tab_from = None;
                 if !cmd.trim().is_empty() {
                     out.push(format!("> {cmd}"));
                     let mut res = cmd::exec(&cmd);
                     for eff in res.effects.drain(..) {
                         cmd::apply(eff);
                     }
-                    out.extend(res.lines_resolved());
+                    let lines = res.lines_resolved();
+                    // "did you mean" só depois de um comando que falhou
+                    *hint = if lines.first().is_some_and(|l| l.starts_with('✖')) {
+                        cmd::did_you_mean(&cmd)
+                    } else {
+                        None
+                    };
+                    out.extend(lines);
                     if !history.contains(&cmd) {
                         history.push(cmd);
                     }
@@ -1813,6 +1857,8 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     *history_idx = Some(idx);
                     *input = history[idx].clone();
                     *caret = input.chars().count();
+                    *hint = None;
+                    *tab_from = None;
                     *suggestions = cmd::slash_suggestions(input);
                 }
             }
@@ -1822,11 +1868,14 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                         *history_idx = Some(idx + 1);
                         *input = history[idx + 1].clone();
                         *caret = input.chars().count();
+                        *hint = None;
                         *suggestions = cmd::slash_suggestions(input);
                     } else {
                         *history_idx = None;
                         input.clear();
                         *caret = 0;
+                        *hint = None;
+                        *tab_from = None;
                         *suggestions = Vec::new();
                     }
                 }
@@ -2797,6 +2846,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             scroll,
             suggestions,
             caret,
+            hint,
             ..
         } => {
             let h = 20u16.min(st.area.height.saturating_sub(2));
@@ -2818,24 +2868,16 @@ fn draw(f: &mut Frame, st: &mut State) {
 
             // build suggestion + did_you_mean lines (drawn between output and input)
             let mut extra: Vec<Line> = Vec::new();
-            if !suggestions.is_empty() {
-                let sug_keep = suggestions.len().min(6);
-                for s in suggestions.iter().take(sug_keep) {
-                    extra.push(Line::from(Span::styled(
-                        format!("  {s}"),
-                        Style::new().fg(c_lblu()),
-                    )));
-                }
-                if suggestions.len() > 6 {
-                    extra.push(Line::from(Span::styled(
-                        format!("  … and {} more", suggestions.len() - 6),
-                        Style::new().fg(c_gray()),
-                    )));
-                }
-            }
-            if let Some(hint) = cmd::did_you_mean(input) {
+            // todas as sugestões — com input vazio, a lista completa de comandos
+            for s in suggestions.iter() {
                 extra.push(Line::from(Span::styled(
-                    format!("  ⚠ {hint}"),
+                    format!("  {s}"),
+                    Style::new().fg(c_lblu()),
+                )));
+            }
+            if let Some(h) = hint {
+                extra.push(Line::from(Span::styled(
+                    format!("  ⚠ {h}"),
                     Style::new().fg(c_yel()),
                 )));
             }

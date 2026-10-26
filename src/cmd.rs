@@ -523,6 +523,24 @@ pub fn slash_suggestions(prefix: &str) -> Vec<String> {
         .collect()
 }
 
+/// nomes únicos de comando (ordem do catálogo) cujo nome começa com o
+/// primeiro token de `query` — base pra Tab complete/ciclar
+pub fn tab_matches(query: &str) -> Vec<String> {
+    let head = match query.trim_start().split_whitespace().next() {
+        Some(h) => h.trim_start_matches('/').to_lowercase(),
+        None => return vec![],
+    };
+    let mut names: Vec<String> = Vec::new();
+    for (c, _) in SLASH_CMDS {
+        if let Some(n) = c.trim_start_matches('/').split_whitespace().next() {
+            if n.starts_with(&head) && !names.iter().any(|x| x == n) {
+                names.push(n.to_string());
+            }
+        }
+    }
+    names
+}
+
 pub fn did_you_mean(cmd: &str) -> Option<String> {
     let c = cmd.trim().to_lowercase();
     if c.is_empty() {
@@ -756,6 +774,15 @@ mod tests {
     fn did_you_mean_suggests() {
         assert!(did_you_mean("them").is_some());
         assert!(did_you_mean("help").is_none()); // comando exato não sugere
+    }
+
+    #[test]
+    fn tab_matches_complete_and_cycle_base() {
+        assert_eq!(tab_matches("th"), vec!["theme".to_string()]);
+        // "s" casa show e save, na ordem do catálogo
+        assert_eq!(tab_matches("s"), vec!["show".to_string(), "save".to_string()]);
+        assert_eq!(tab_matches("zzz"), Vec::<String>::new());
+        assert_eq!(tab_matches("theme gruvbox"), vec!["theme".to_string()]);
     }
 
     #[test]
