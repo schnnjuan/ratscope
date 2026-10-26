@@ -1,3 +1,5 @@
+mod cmd;
+
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 use std::process::{Command, Stdio};
@@ -26,7 +28,7 @@ const SPINNER: [&str; 8] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠶", "�
 // ---- tema em tempo de execução — o terminal ':' (tecla dois-pontos) mexe nisto ----
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum BorderKind {
+pub enum BorderKind {
     Pixel,
     Linha,
     Dupla,
@@ -34,27 +36,27 @@ enum BorderKind {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum GaugeKind {
+pub enum GaugeKind {
     Quadrado,
     Circulo,
 }
 
 #[derive(Clone, Copy, PartialEq)]
-struct Theme {
-    bg: Color,
-    cy: Color,
-    mag: Color,
-    grn: Color,
-    yel: Color,
-    red: Color,
-    gray: Color,
-    blu: Color,
-    lblu: Color,
-    lred: Color,
-    wht: Color,
-    blk: Color,
-    border: BorderKind,
-    gauge: GaugeKind,
+pub struct Theme {
+    pub bg: Color,
+    pub cy: Color,
+    pub mag: Color,
+    pub grn: Color,
+    pub yel: Color,
+    pub red: Color,
+    pub gray: Color,
+    pub blu: Color,
+    pub lblu: Color,
+    pub lred: Color,
+    pub wht: Color,
+    pub blk: Color,
+    pub border: BorderKind,
+    pub gauge: GaugeKind,
 }
 
 impl Theme {
@@ -306,7 +308,7 @@ impl Theme {
 }
 
 #[allow(clippy::type_complexity)]
-const THEME_LIST: &[(&str, fn() -> Theme)] = &[
+pub const THEME_LIST: &[(&str, fn() -> Theme)] = &[
     ("pixel", Theme::pixel),
     ("dracula", Theme::dracula),
     ("gruvbox", Theme::gruvbox),
@@ -324,7 +326,7 @@ const THEME_LIST: &[(&str, fn() -> Theme)] = &[
 
 static THEME: OnceLock<RwLock<Theme>> = OnceLock::new();
 
-fn t() -> Theme {
+pub fn t() -> Theme {
     *THEME
         .get_or_init(|| RwLock::new(Theme::pixel()))
         .read()
@@ -373,7 +375,7 @@ fn pal() -> [Color; 6] {
     [c_cy(), c_mag(), c_grn(), c_yel(), c_lblu(), c_lred()]
 }
 
-fn mudar_tema(f: impl FnOnce(&mut Theme)) {
+pub fn mudar_tema(f: impl FnOnce(&mut Theme)) {
     let lock = THEME.get_or_init(|| RwLock::new(Theme::pixel()));
     let mut novo = *lock.read().unwrap();
     f(&mut novo);
@@ -383,23 +385,23 @@ fn mudar_tema(f: impl FnOnce(&mut Theme)) {
 // ---- idioma: inglês é o padrão, português opcional ----
 
 #[derive(Clone, Copy, PartialEq)]
-enum Lang {
+pub enum Lang {
     En,
     Pt,
 }
 
 static LANG: OnceLock<RwLock<Lang>> = OnceLock::new();
 
-fn lang() -> Lang {
+pub fn lang() -> Lang {
     *LANG.get_or_init(|| RwLock::new(Lang::En)).read().unwrap()
 }
 
-fn set_lang(l: Lang) {
+pub fn set_lang(l: Lang) {
     *LANG.get_or_init(|| RwLock::new(Lang::En)).write().unwrap() = l;
 }
 
 // string bilíngue
-fn tr(en: &'static str, pt: &'static str) -> &'static str {
+pub fn tr(en: &'static str, pt: &'static str) -> &'static str {
     match lang() {
         Lang::En => en,
         Lang::Pt => pt,
@@ -407,16 +409,16 @@ fn tr(en: &'static str, pt: &'static str) -> &'static str {
 }
 
 // tr com um único {} substituído
-fn tr1(en: &'static str, pt: &'static str, a: &str) -> String {
+pub fn tr1(en: &'static str, pt: &'static str, a: &str) -> String {
     tr(en, pt).replacen("{}", a, 1)
 }
 
 // tr com dois {}
-fn tr2(en: &'static str, pt: &'static str, a: &str, b: &str) -> String {
+pub fn tr2(en: &'static str, pt: &'static str, a: &str, b: &str) -> String {
     tr(en, pt).replacen("{}", a, 1).replacen("{}", b, 1)
 }
 
-fn parse_hex(s: &str) -> Option<Color> {
+pub fn parse_hex(s: &str) -> Option<Color> {
     let s = s.trim().trim_start_matches('#');
     let full: String = if s.len() == 3 {
         s.chars().flat_map(|c| [c, c]).collect()
@@ -430,540 +432,10 @@ fn parse_hex(s: &str) -> Option<Color> {
     Some(Color::Rgb(n(0)?, n(2)?, n(4)?))
 }
 
-fn hex_of(c: Color) -> String {
+pub fn hex_of(c: Color) -> String {
     match c {
         Color::Rgb(r, g, b) => format!("#{r:02X}{g:02X}{b:02X}"),
         _ => "?".into(),
-    }
-}
-
-// --- slash command helpers ---
-
-const SLASH_CMDS: &[(&str, &str)] = &[
-    ("/help", "show this help"),
-    ("/bg <hex>", "set background color"),
-    (
-        "/color <name> <hex>",
-        "set color (cyan pink green yellow red gray blue peach orange white black)",
-    ),
-    ("/border <pixel|line|double|thick>", "set border style"),
-    ("/gauge <square|circle>", "set gauge style"),
-    (
-        "/theme <name>",
-        "set theme (pixel dracula gruvbox nord catppuccin tokyo solarized synthwave matrix candy ember mono carmesim)",
-    ),
-    ("/lang <en|pt>", "set language"),
-    ("/show", "show current theme values"),
-    ("/save", "save config to ~/.config/ratscope/config.json"),
-    ("/reset", "reset to pixel theme"),
-    ("/hosts", "list docker hosts"),
-    (
-        "/hosts add <endpoint>",
-        "add docker host (tcp://... or ssh://...)",
-    ),
-    ("/hosts rm <endpoint>", "remove docker host"),
-    ("/hosts set <endpoint>", "set active docker host"),
-];
-
-fn slash_suggestions(prefix: &str) -> Vec<String> {
-    let p = prefix.trim().to_lowercase();
-    if p.is_empty() {
-        return SLASH_CMDS
-            .iter()
-            .map(|(c, d)| format!("{c} — {d}"))
-            .collect();
-    }
-    SLASH_CMDS
-        .iter()
-        .filter(|(c, _)| c.starts_with(&p))
-        .map(|(c, d)| format!("{c} — {d}"))
-        .collect()
-}
-
-fn did_you_mean(cmd: &str) -> Option<String> {
-    let c = cmd.trim().to_lowercase();
-    if c.is_empty() {
-        return None;
-    }
-    // strip leading / for comparison — exec_cmd accepts both /cmd and cmd
-    let c = c.strip_prefix('/').unwrap_or(&c);
-    SLASH_CMDS
-        .iter()
-        .map(|(s, _)| s.trim_start_matches('/').to_lowercase())
-        .min_by_key(|s| levenshtein(c, s))
-        .filter(|s| levenshtein(c, s) <= 3 && *s != c)
-        .map(|s| format!("did you mean /{s}?"))
-}
-
-#[allow(clippy::needless_range_loop)]
-fn levenshtein(a: &str, b: &str) -> usize {
-    let a: Vec<char> = a.chars().collect();
-    let b: Vec<char> = b.chars().collect();
-    let mut dp = vec![vec![0; b.len() + 1]; a.len() + 1];
-    for i in 0..=a.len() {
-        dp[i][0] = i;
-    }
-    for j in 0..=b.len() {
-        dp[0][j] = j;
-    }
-    for i in 1..=a.len() {
-        for j in 1..=b.len() {
-            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            dp[i][j] = (dp[i - 1][j] + 1)
-                .min(dp[i][j - 1] + 1)
-                .min(dp[i - 1][j - 1] + cost);
-        }
-    }
-    dp[a.len()][b.len()]
-}
-
-fn config_arquivo() -> Option<std::path::PathBuf> {
-    let home = std::env::var("HOME").ok()?;
-    Some(std::path::Path::new(&home).join(".config/ratscope/config.json"))
-}
-
-fn salvar_config() -> Result<String, String> {
-    let p = config_arquivo().ok_or("sem $HOME")?;
-    let x = t();
-    let j = serde_json::json!({
-        "bg": hex_of(x.bg), "cy": hex_of(x.cy), "mag": hex_of(x.mag),
-        "grn": hex_of(x.grn), "yel": hex_of(x.yel), "red": hex_of(x.red),
-        "gray": hex_of(x.gray), "blu": hex_of(x.blu), "lblu": hex_of(x.lblu),
-        "lred": hex_of(x.lred), "wht": hex_of(x.wht), "blk": hex_of(x.blk),
-        "borda": match x.border {
-            BorderKind::Pixel => "pixel",
-            BorderKind::Linha => "linha",
-            BorderKind::Dupla => "dupla",
-            BorderKind::Grossa => "grossa",
-        },
-        "medidor": match x.gauge {
-            GaugeKind::Quadrado => "quadrado",
-            GaugeKind::Circulo => "circulo",
-        },
-        "lang": match lang() {
-            Lang::Pt => "pt",
-            Lang::En => "en",
-        },
-    });
-    if let Some(d) = p.parent() {
-        std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
-    }
-    std::fs::write(&p, serde_json::to_string_pretty(&j).unwrap()).map_err(|e| e.to_string())?;
-    Ok(p.display().to_string())
-}
-
-// tema salvo sobrepõe o padrão no boot; erros são ignorados de propósito
-fn carregar_config() {
-    let Some(p) = config_arquivo() else { return };
-    let Ok(txt) = std::fs::read_to_string(p) else {
-        return;
-    };
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) else {
-        return;
-    };
-    let cor = |k: &str| v[k].as_str().and_then(parse_hex);
-    mudar_tema(|t| {
-        if let Some(c) = cor("bg") {
-            t.bg = c;
-        }
-        if let Some(c) = cor("cy") {
-            t.cy = c;
-        }
-        if let Some(c) = cor("mag") {
-            t.mag = c;
-        }
-        if let Some(c) = cor("grn") {
-            t.grn = c;
-        }
-        if let Some(c) = cor("yel") {
-            t.yel = c;
-        }
-        if let Some(c) = cor("red") {
-            t.red = c;
-        }
-        if let Some(c) = cor("gray") {
-            t.gray = c;
-        }
-        if let Some(c) = cor("blu") {
-            t.blu = c;
-        }
-        if let Some(c) = cor("lblu") {
-            t.lblu = c;
-        }
-        if let Some(c) = cor("lred") {
-            t.lred = c;
-        }
-        if let Some(c) = cor("wht") {
-            t.wht = c;
-        }
-        if let Some(c) = cor("blk") {
-            t.blk = c;
-        }
-        t.border = match v["borda"].as_str() {
-            Some("linha") => BorderKind::Linha,
-            Some("dupla") => BorderKind::Dupla,
-            Some("grossa") => BorderKind::Grossa,
-            Some("pixel") => BorderKind::Pixel,
-            _ => t.border,
-        };
-        t.gauge = match v["medidor"].as_str() {
-            Some("circulo") => GaugeKind::Circulo,
-            Some("quadrado") => GaugeKind::Quadrado,
-            _ => t.gauge,
-        };
-    });
-    if v["lang"].as_str() == Some("pt") {
-        set_lang(Lang::Pt);
-    }
-}
-
-// comandos do terminal embutido; devolve linhas de resposta
-fn exec_cmd(cmd: &str) -> Vec<String> {
-    let bad = |m: &str| vec![format!("✖ {m}")];
-    let ok = || vec![tr("✔ done", "✔ feito").to_string()];
-    let raw = cmd.trim();
-    if raw.is_empty() {
-        return vec![];
-    }
-    let ws: Vec<&str> = raw.split_whitespace().collect();
-    if ws.is_empty() {
-        return vec![];
-    }
-    let (cmd_name, args) = if ws[0].starts_with('/') {
-        (&ws[0][1..], &ws[1..])
-    } else {
-        (ws[0], &ws[1..])
-    };
-    match (cmd_name, args) {
-        ("help" | "ajuda" | "h", _) => {
-            vec![
-                tr("**Appearance**", "**Aparência**").to_string(),
-                format!(
-                    "  /{:<28} — {}",
-                    "theme <name>",
-                    tr(
-                        "set theme (pixel, dracula, gruvbox, nord, catppuccin, tokyo, solarized, synthwave, matrix, candy, ember, mono, carmesim)",
-                        "define tema (pixel, dracula, gruvbox, nord, catppuccin, tokyo, solarized, synthwave, matrix, candy, ember, mono, carmesim)"
-                    )
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "bg <hex>",
-                    tr(
-                        "background color (e.g. /bg #10101A)",
-                        "cor de fundo (ex: /bg #10101A)"
-                    )
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "color <name> <hex>",
-                    tr(
-                        "set color: cyan pink green yellow red gray blue peach orange white black",
-                        "define cor: cyan pink green yellow red gray blue peach orange white black"
-                    )
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "border <pixel|line|double|thick>",
-                    tr("border style", "estilo de borda")
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "gauge <square|circle>",
-                    tr("gauge style", "estilo de medidor")
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "reset",
-                    tr("back to pixel theme", "volta ao tema pixel")
-                ),
-                String::new(),
-                tr("**Display**", "**Exibição**").to_string(),
-                format!(
-                    "  /{:<28} — {}",
-                    "show",
-                    tr("show current theme values", "mostra valores do tema atual")
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "lang <en|pt>",
-                    tr("interface language", "idioma da interface")
-                ),
-                String::new(),
-                tr("**Docker Hosts**", "**Hosts Docker**").to_string(),
-                format!(
-                    "  /{:<28} — {}",
-                    "hosts",
-                    tr(
-                        "list configured docker hosts",
-                        "lista hosts docker configurados"
-                    )
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "hosts add <endpoint>",
-                    tr(
-                        "add docker host (tcp://host:2376 or ssh://user@host)",
-                        "adiciona host docker (tcp://host:2376 ou ssh://user@host)"
-                    )
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "hosts rm <endpoint>",
-                    tr("remove docker host", "remove host docker")
-                ),
-                format!(
-                    "  /{:<28} — {}",
-                    "hosts set <endpoint>",
-                    tr("set active docker host", "define host docker ativo")
-                ),
-                String::new(),
-                tr("**Config**", "**Config**").to_string(),
-                format!(
-                    "  /{:<28} — {}",
-                    "save",
-                    tr(
-                        "write ~/.config/ratscope/config.json",
-                        "salva ~/.config/ratscope/config.json"
-                    )
-                ),
-                format!("  /{:<28} — {}", "help", tr("this help", "esta ajuda")),
-            ]
-        }
-        ("lang", ["en"]) => {
-            set_lang(Lang::En);
-            ok()
-        }
-        ("lang", ["pt"]) => {
-            set_lang(Lang::Pt);
-            ok()
-        }
-        ("lang", _) => bad("usage: /lang en|pt"),
-        ("bg" | "fundo", [h]) => match parse_hex(h) {
-            Some(c) => {
-                mudar_tema(move |t| t.bg = c);
-                ok()
-            }
-            None => bad(tr(
-                "invalid hex (e.g. #10101A)",
-                "hex inválido (ex: #10101A)",
-            )),
-        },
-        ("color" | "cor", [nome, h]) => match parse_hex(h) {
-            None => bad(tr(
-                "invalid hex (e.g. #FF004D)",
-                "hex inválido (ex: #FF004D)",
-            )),
-            Some(c) => {
-                let set: fn(&mut Theme, Color) = match *nome {
-                    "cyan" | "ciano" => |t, c| t.cy = c,
-                    "pink" | "rosa" => |t, c| t.mag = c,
-                    "green" | "verde" => |t, c| t.grn = c,
-                    "yellow" | "amarelo" => |t, c| t.yel = c,
-                    "red" | "vermelho" => |t, c| t.red = c,
-                    "gray" | "cinza" => |t, c| t.gray = c,
-                    "blue" | "azul" => |t, c| t.blu = c,
-                    "peach" | "pessego" => |t, c| t.lblu = c,
-                    "orange" | "laranja" => |t, c| t.lred = c,
-                    "white" | "branco" => |t, c| t.wht = c,
-                    "black" | "preto" => |t, c| t.blk = c,
-                    _ => {
-                        return bad(tr(
-                            "unknown color — /help lists names",
-                            "cor desconhecida — /ajuda lista nomes",
-                        ));
-                    }
-                };
-                mudar_tema(move |t| set(t, c));
-                ok()
-            }
-        },
-        ("border" | "borda", [k]) => {
-            let k = match *k {
-                "pixel" => Some(BorderKind::Pixel),
-                "line" | "linha" => Some(BorderKind::Linha),
-                "double" | "dupla" => Some(BorderKind::Dupla),
-                "thick" | "grossa" => Some(BorderKind::Grossa),
-                _ => None,
-            };
-            match k {
-                Some(b) => {
-                    mudar_tema(move |t| t.border = b);
-                    ok()
-                }
-                None => bad(tr(
-                    "use: /border pixel|line|double|thick",
-                    "use: /borda pixel|linha|dupla|grossa",
-                )),
-            }
-        }
-        ("gauge" | "medidor", [k]) => {
-            let k = match *k {
-                "square" | "quadrado" => Some(GaugeKind::Quadrado),
-                "circle" | "circulo" => Some(GaugeKind::Circulo),
-                _ => None,
-            };
-            match k {
-                Some(g) => {
-                    mudar_tema(move |t| t.gauge = g);
-                    ok()
-                }
-                None => bad(tr(
-                    "use: /gauge square|circle",
-                    "use: /medidor quadrado|circulo",
-                )),
-            }
-        }
-        ("theme" | "tema", [nome]) => match THEME_LIST.iter().find(|(n, _)| n == nome) {
-            Some((_, f)) => {
-                mudar_tema(|t| *t = f());
-                ok()
-            }
-            None => bad(tr(
-                "use: /theme pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono|carmesim",
-                "use: /tema pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono|carmesim",
-            )),
-        },
-        ("reset", _) => {
-            mudar_tema(|t| *t = Theme::pixel());
-            ok()
-        }
-        ("show" | "ver", _) => {
-            let x = t();
-            vec![
-                format!(
-                    "{} {} · {} {:?} · {} {:?}",
-                    tr("bg", "fundo"),
-                    hex_of(x.bg),
-                    tr("border", "borda"),
-                    x.border,
-                    tr("gauge", "medidor"),
-                    x.gauge
-                ),
-                format!(
-                    "{} {} {} {} {} {}",
-                    tr("cyan", "ciano"),
-                    hex_of(x.cy),
-                    tr("pink", "rosa"),
-                    hex_of(x.mag),
-                    tr("green", "verde"),
-                    hex_of(x.grn)
-                ),
-                format!(
-                    "{} {} {} {} {} {}",
-                    tr("yellow", "amarelo"),
-                    hex_of(x.yel),
-                    tr("red", "vermelho"),
-                    hex_of(x.red),
-                    tr("gray", "cinza"),
-                    hex_of(x.gray)
-                ),
-                format!(
-                    "{} {} {} {} {} {}",
-                    tr("blue", "azul"),
-                    hex_of(x.blu),
-                    tr("peach", "pessego"),
-                    hex_of(x.lblu),
-                    tr("orange", "laranja"),
-                    hex_of(x.lred)
-                ),
-                format!(
-                    "{} {} {} {}",
-                    tr("white", "branco"),
-                    hex_of(x.wht),
-                    tr("black", "preto"),
-                    hex_of(x.blk)
-                ),
-            ]
-        }
-        ("save" | "salvar", _) => match salvar_config() {
-            Ok(p) => vec![tr1("✔ saved to {}", "✔ salvo em {}", &p)],
-            Err(e) => bad(&e),
-        },
-        ("hosts", ["add", endpoint @ ..]) => {
-            let host = endpoint.join(" ");
-            if host.trim().is_empty() {
-                return bad("usage: /hosts add <endpoint>");
-            }
-            let mut hosts = get_docker_hosts();
-            if !hosts.contains(&host) {
-                hosts.push(host.clone());
-                set_docker_hosts(hosts);
-                set_active_docker_host(Some(host.clone()));
-                vec![tr1(
-                    "✔ docker host {} added and selected",
-                    "✔ docker host {} adicionado e selecionado",
-                    &host,
-                )]
-            } else {
-                bad("host already exists")
-            }
-        }
-        ("hosts", ["rm" | "remove" | "del", endpoint @ ..]) => {
-            let host = endpoint.join(" ");
-            if host.trim().is_empty() {
-                return bad("usage: /hosts rm <endpoint>");
-            }
-            let mut hosts = get_docker_hosts();
-            hosts.retain(|x| *x != host);
-            set_docker_hosts(hosts.clone());
-            if get_active_docker_host() == Some(host.clone()) {
-                set_active_docker_host(None);
-            }
-            vec![tr1(
-                "✔ docker host {} removed",
-                "✔ docker host {} removido",
-                &host,
-            )]
-        }
-        ("hosts", ["set", endpoint @ ..]) => {
-            let host = endpoint.join(" ");
-            if host.trim().is_empty() {
-                return bad("usage: /hosts set <endpoint>");
-            }
-            let hosts = get_docker_hosts();
-            if hosts.contains(&host) {
-                set_active_docker_host(Some(host.clone()));
-                vec![tr1(
-                    "✔ docker host set to {}",
-                    "✔ docker host definido para {}",
-                    &host,
-                )]
-            } else {
-                bad(tr(
-                    "host not found — add it first",
-                    "host não encontrado — adicione primeiro",
-                ))
-            }
-        }
-        ("hosts", _) => {
-            let hosts = get_docker_hosts();
-            let active = get_active_docker_host();
-            if hosts.is_empty() {
-                vec![
-                    tr(
-                        "no docker hosts configured — use /hosts add <endpoint>",
-                        "nenhum docker host configurado — use /hosts add <endpoint>",
-                    )
-                    .to_string(),
-                ]
-            } else {
-                hosts
-                    .into_iter()
-                    .map(|h| {
-                        if Some(&h) == active.as_ref() {
-                            format!("● {h} (active)")
-                        } else {
-                            format!("○ {h}")
-                        }
-                    })
-                    .collect()
-            }
-        }
-        _ => bad(tr(
-            "unknown command — type /help",
-            "comando desconhecido — digite /ajuda",
-        )),
     }
 }
 
@@ -1326,14 +798,14 @@ fn get_over_split() -> bool {
 static DOCKER_HOSTS: OnceLock<RwLock<Vec<String>>> = OnceLock::new();
 static ACTIVE_DOCKER_HOST: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 
-fn set_docker_hosts(hosts: Vec<String>) {
+pub fn set_docker_hosts(hosts: Vec<String>) {
     *DOCKER_HOSTS
         .get_or_init(|| RwLock::new(Vec::new()))
         .write()
         .unwrap() = hosts;
 }
 
-fn get_docker_hosts() -> Vec<String> {
+pub fn get_docker_hosts() -> Vec<String> {
     DOCKER_HOSTS
         .get_or_init(|| RwLock::new(Vec::new()))
         .read()
@@ -1341,14 +813,14 @@ fn get_docker_hosts() -> Vec<String> {
         .clone()
 }
 
-fn set_active_docker_host(host: Option<String>) {
+pub fn set_active_docker_host(host: Option<String>) {
     *ACTIVE_DOCKER_HOST
         .get_or_init(|| RwLock::new(None))
         .write()
         .unwrap() = host;
 }
 
-fn get_active_docker_host() -> Option<String> {
+pub fn get_active_docker_host() -> Option<String> {
     ACTIVE_DOCKER_HOST
         .get_or_init(|| RwLock::new(None))
         .read()
@@ -2242,23 +1714,27 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
         } => match k.code {
             KeyCode::Char(c) => {
                 input.push(c);
-                *suggestions = slash_suggestions(input);
+                *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Backspace => {
                 input.pop();
-                *suggestions = slash_suggestions(input);
+                *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Tab => {
                 if let Some(cmd) = suggestions.first().and_then(|f| f.split(" — ").next()) {
                     *input = cmd.to_string();
-                    *suggestions = slash_suggestions(input);
+                    *suggestions = cmd::slash_suggestions(input);
                 }
             }
             KeyCode::Enter => {
                 let cmd = std::mem::take(input);
                 if !cmd.trim().is_empty() {
                     out.push(format!("> {cmd}"));
-                    out.extend(exec_cmd(&cmd));
+                    let res = cmd::exec(&cmd);
+                    out.extend(res.lines);
+                    for eff in res.effects {
+                        cmd::apply(eff);
+                    }
                     if !history.contains(&cmd) {
                         history.push(cmd);
                     }
@@ -2275,7 +1751,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     let idx = history_idx.map_or(history.len() - 1, |i| i.saturating_sub(1));
                     *history_idx = Some(idx);
                     *input = history[idx].clone();
-                    *suggestions = slash_suggestions(input);
+                    *suggestions = cmd::slash_suggestions(input);
                 }
             }
             KeyCode::Down => {
@@ -2283,7 +1759,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     if idx + 1 < history.len() {
                         *history_idx = Some(idx + 1);
                         *input = history[idx + 1].clone();
-                        *suggestions = slash_suggestions(input);
+                        *suggestions = cmd::slash_suggestions(input);
                     } else {
                         *history_idx = None;
                         input.clear();
@@ -3292,7 +2768,7 @@ fn draw(f: &mut Frame, st: &mut State) {
                     )));
                 }
             }
-            if let Some(hint) = did_you_mean(input) {
+            if let Some(hint) = cmd::did_you_mean(input) {
                 extra.push(Line::from(Span::styled(
                     format!("  ⚠ {hint}"),
                     Style::new().fg(c_yel()),
@@ -3861,7 +3337,7 @@ fn boot() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn run_app() -> Result<(), Box<dyn std::error::Error>> {
-    carregar_config();
+    cmd::carregar_config();
     let mut term = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     let (tx, rx) = mpsc::channel();
     let px = tx.clone();
