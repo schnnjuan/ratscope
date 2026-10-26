@@ -66,12 +66,22 @@ for _,off,rows in G:
         for cx,ch in enumerate(row):
             if ch=="#": grid[off+ry][x+cx]=1
     x+=7
-# 4 solid color bands, top to bottom (full blocks only: half-blocks blob on some terminals)
-BANDS=[(198,230,224),(140,186,180),(83,143,135),(60,104,99)]
-for y in range(H):
-    c=BANDS[min(y*len(BANDS)//H,len(BANDS)-1)]
-    line="".join((f"{E}[38;2;{c[0]};{c[1]};{c[2]}m█" if p else " ") for p in grid[y])
-    print(f"{E}[39;49m"+line+f"{E}[39;49m")
+# same 12-color gradient as docs/logo.svg (grid rows 2..13), ▀ with fg+bg so
+# both pixel rows render — the old blob was fg-only (bottom half never painted)
+GRAD=[(165,205,199),(149,193,186),(132,180,173),(116,168,160),(99,155,148),(83,143,135),
+      (77,132,125),(70,122,115),(64,111,105),(58,100,96),(52,89,86),(45,79,76)]
+def col(y): return GRAD[max(0,min(len(GRAD)-1,y-2))]
+def fgc(c): return f"{E}[38;2;{c[0]};{c[1]};{c[2]}m"
+def bgc(c): return f"{E}[48;2;{c[0]};{c[1]};{c[2]}m"
+for y in range(0,H,2):
+    parts=[]
+    for i in range(W):
+        t,b=grid[y][i],grid[y+1][i]
+        if t and b: parts.append(fgc(col(y))+bgc(col(y+1))+"▀")
+        elif t:     parts.append(fgc(col(y))+"▀")
+        elif b:     parts.append(fgc(col(y+1))+"▄")
+        else:       parts.append(" ")
+    print(f"{E}[39;49m"+"".join(parts)+f"{E}[39;49m")
 PYEOF
 printf '\n'
 printf '  %spixel-art dashboard for docker, systemd, ports and hardware%s\n\n' "$GRAY" "$RESET"
