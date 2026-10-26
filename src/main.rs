@@ -609,6 +609,7 @@ struct ProcRow {
     pid: u32,
     comm: String,
     rss_b: u64,
+    cpu_pct: f32,
 }
 
 struct Pc {
@@ -1055,11 +1056,12 @@ fn procs_listado(n: usize) -> Vec<ProcRow> {
         let pid: u32 = w.next()?.parse().ok()?;
         let comm = w.next()?.to_string();
         let rss: u64 = w.next()?.parse().ok()?; // kB
-        let _cpu: f32 = w.next().unwrap_or("0").parse().unwrap_or(0.0);
+        let cpu: f32 = w.next().unwrap_or("0").parse().unwrap_or(0.0);
         (rss > 0).then_some(ProcRow {
             pid,
             comm,
             rss_b: rss * 1024,
+            cpu_pct: cpu,
         })
     })
     .skip(1) // seed: pula o próprio ratscope
@@ -1132,7 +1134,7 @@ fn snapshot() -> Snapshot {
         temp_c,
         _mem_available: ma,
     };
-    let procs = procs_listado(12);
+    let procs = procs_listado(50);
     Snapshot {
         containers,
         units: units(),
@@ -3399,8 +3401,49 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
     let title_en = format!(" ■ hardware — {} procs · {} mounts · {}% ram ", snap.procs.len(), pc.mounts.len(), ram_pct);
     let title_pt = format!(" ■ hardware — {} procs · {} mounts · {}% ram ", snap.procs.len(), pc.mounts.len(), ram_pct);
     let title = if lang() == Lang::En { title_en } else { title_pt };
-    let body = box_title(f, area, title, c_cy());
-    f.render_widget(Paragraph::new(lines), body);
+
+    // coluna da direita: apps rodando com as infos que a lista compacta não mostra
+    let rw = 40u16.min(area.width.saturating_sub(44));
+    if rw >= 20 {
+        let lw = area.width - rw;
+        let left = Rect { width: lw, ..area };
+        let right = Rect { x: area.x + lw, width: rw, ..area };
+        let lbody = box_title(f, left, title, c_cy());
+        f.render_widget(Paragraph::new(lines), lbody);
+        let rbody = box_title(
+            f,
+            right,
+            tr(" running apps ", " apps rodando "),
+            c_mag(),
+        );
+        let rinner = rbody.inner(Margin::new(1, 1));
+        let mut rl: Vec<Line> = vec![Line::from(Span::styled(
+            format!(" {:>7} {:<12} {:>5} {:>9}", "PID", "NAME", "CPU%", "MEM"),
+            Style::new().fg(c_gray()),
+        ))];
+        let rows = rinner.height.saturating_sub(1) as usize;
+        for (i, p) in snap.procs.iter().enumerate().take(rows) {
+            let mut st = Style::new().fg(pal()[i % pal().len()]);
+            if i == sel_over {
+                st = Style::new().fg(c_wht()).bg(c_gray());
+            }
+            rl.push(Line::from(Span::styled(
+                format!(
+                    " {:>7} {:<12} {:>5.1} {:>9}",
+                    p.pid,
+                    trunc(&p.comm, 12),
+                    p.cpu_pct,
+                    fmt_size(p.rss_b)
+                ),
+                st,
+            )));
+        }
+        f.render_widget(Paragraph::new(rl), rinner);
+    } else {
+        // tela estreita: coluna única como sempre
+        let body = box_title(f, area, title, c_cy());
+        f.render_widget(Paragraph::new(lines), body);
+    }
 }
 
 #[cfg(test)]
