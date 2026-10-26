@@ -219,6 +219,12 @@ pub fn exec(input: &str) -> Output {
             if host.trim().is_empty() {
                 return Output::bad("usage: /hosts rm <endpoint>");
             }
+            if !get_docker_hosts().contains(&host) {
+                return Output::bad(&tr(
+                    "host not found — add it first",
+                    "host não encontrado — adicione primeiro",
+                ));
+            }
             Output::msg(vec![tr1(
                 "✔ docker host {} removed",
                 "✔ docker host {} removido",
@@ -543,16 +549,24 @@ pub fn tab_matches(query: &str) -> Vec<String> {
 
 pub fn did_you_mean(cmd: &str) -> Option<String> {
     let c = cmd.trim().to_lowercase();
-    if c.is_empty() {
+    let c = c.strip_prefix('/').unwrap_or(&c);
+    // compara só a primeira palavra contra os NOMES (não as usage strings)
+    let word = c.split_whitespace().next().unwrap_or("");
+    if word.is_empty() {
         return None;
     }
-    // strip leading / for comparison — exec accepts both /cmd and cmd
-    let c = c.strip_prefix('/').unwrap_or(&c);
-    SLASH_CMDS
-        .iter()
-        .map(|(s, _)| s.trim_start_matches('/').to_lowercase())
-        .min_by_key(|s| levenshtein(c, s))
-        .filter(|s| levenshtein(c, s) <= 3 && *s != c)
+    let mut names: Vec<&str> = Vec::new();
+    for (s, _) in SLASH_CMDS {
+        if let Some(n) = s.trim_start_matches('/').split_whitespace().next() {
+            if !names.contains(&n) {
+                names.push(n);
+            }
+        }
+    }
+    names
+        .into_iter()
+        .min_by_key(|s| levenshtein(word, s))
+        .filter(|s| levenshtein(word, s) <= 3 && *s != word)
         .map(|s| format!("did you mean /{s}?"))
 }
 
@@ -772,8 +786,14 @@ mod tests {
 
     #[test]
     fn did_you_mean_suggests() {
-        assert!(did_you_mean("them").is_some());
+        // compara contra nomes: "them" → theme (não /help)
+        assert_eq!(
+            did_you_mean("them").as_deref(),
+            Some("did you mean /theme?")
+        );
+        assert!(did_you_mean("host add x").is_some()); // 1ª palavra → hosts
         assert!(did_you_mean("help").is_none()); // comando exato não sugere
+        assert!(did_you_mean("theme nope").is_none()); // erro de uso não sugere
     }
 
     #[test]

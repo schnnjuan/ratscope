@@ -1755,6 +1755,9 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     }
                     _ => {}
                 }
+                if matches!(c, 'u' | 'k' | 'w') {
+                    *history_idx = None;
+                }
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Char(c) => {
@@ -1763,6 +1766,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                 *caret += 1;
                 *hint = None;
                 *tab_from = None;
+                *history_idx = None; // edição desanexa do histórico
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Backspace => {
@@ -1772,6 +1776,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                 }
                 *hint = None;
                 *tab_from = None;
+                *history_idx = None;
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Delete => {
@@ -1780,6 +1785,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                 }
                 *hint = None;
                 *tab_from = None;
+                *history_idx = None;
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Left => *caret = caret.saturating_sub(1),
@@ -1823,6 +1829,9 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                 let cmd = std::mem::take(input);
                 *caret = 0;
                 *tab_from = None;
+                // novo prompt = estado fresco: mostra o fim do scrollback
+                *scroll = 0;
+                *hint = None;
                 if !cmd.trim().is_empty() {
                     out.push(format!("> {cmd}"));
                     let mut res = cmd::exec(&cmd);
@@ -2887,8 +2896,9 @@ fn draw(f: &mut Frame, st: &mut State) {
             ]);
             let fixed_lines = extra.len() + 1; // suggestions + input
 
-            // output lines with scroll — reserve space for extra + input
-            let keep = avail.saturating_sub(fixed_lines).saturating_sub(1);
+            // output lines with scroll — reserve space for extra + input + the
+            // 2 possible scroll indicators, so the input line never clips
+            let keep = avail.saturating_sub(fixed_lines).saturating_sub(3);
             let total = out.len();
             // clamp scroll to meaningful range (scroll is &usize in draw, use local)
             let max_scroll = total.saturating_sub(keep);
