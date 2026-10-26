@@ -653,6 +653,7 @@ enum Mode {
         history: Vec<String>,
         history_idx: Option<usize>,
         suggestions: Vec<String>,
+        caret: usize,
     },
     Detail {
         tgt: Target,
@@ -1612,6 +1613,11 @@ fn spawn_disk(tx: Sender<Msg>) {
 
 // ---- input ----
 
+/// byte offset of the caret's char index (caret counts chars, String slices bytes)
+fn byte_idx(s: &str, ci: usize) -> usize {
+    s.char_indices().nth(ci).map(|(b, _)| b).unwrap_or(s.len())
+}
+
 fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
     if k.modifiers.contains(KeyModifiers::CONTROL) && k.code == KeyCode::Char('c') {
         return false;
@@ -1700,6 +1706,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     history: Vec::new(),
                     history_idx: None,
                     suggestions: Vec::new(),
+                    caret: 0,
                 };
             }
             _ => {}
@@ -1711,23 +1718,74 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             history,
             history_idx,
             suggestions,
+            caret,
         } => match k.code {
+            KeyCode::Char(c) if k.modifiers.contains(KeyModifiers::CONTROL) => {
+                match c {
+                    'a' => *caret = 0,
+                    'e' => *caret = input.chars().count(),
+                    'u' => {
+                        let b = byte_idx(input, *caret);
+                        input.drain(..b);
+                        *caret = 0;
+                    }
+                    'k' => {
+                        let b = byte_idx(input, *caret);
+                        input.truncate(b);
+                    }
+                    'w' => {
+                        let chars: Vec<char> = input.chars().collect();
+                        let mut cut = *caret;
+                        while cut > 0 && chars[cut - 1].is_whitespace() {
+                            cut -= 1;
+                        }
+                        while cut > 0 && !chars[cut - 1].is_whitespace() {
+                            cut -= 1;
+                        }
+                        input.drain(byte_idx(input, cut)..byte_idx(input, *caret));
+                        *caret = cut;
+                    }
+                    _ => {}
+                }
+                *suggestions = cmd::slash_suggestions(input);
+            }
             KeyCode::Char(c) => {
-                input.push(c);
+                let b = byte_idx(input, *caret);
+                input.insert(b, c);
+                *caret += 1;
                 *suggestions = cmd::slash_suggestions(input);
             }
             KeyCode::Backspace => {
-                input.pop();
+                if *caret > 0 {
+                    input.drain(byte_idx(input, *caret - 1)..byte_idx(input, *caret));
+                    *caret -= 1;
+                }
                 *suggestions = cmd::slash_suggestions(input);
             }
+            KeyCode::Delete => {
+                if *caret < input.chars().count() {
+                    input.drain(byte_idx(input, *caret)..byte_idx(input, *caret + 1));
+                }
+                *suggestions = cmd::slash_suggestions(input);
+            }
+            KeyCode::Left => *caret = caret.saturating_sub(1),
+            KeyCode::Right => {
+                if *caret < input.chars().count() {
+                    *caret += 1;
+                }
+            }
+            KeyCode::Home => *caret = 0,
+            KeyCode::End => *caret = input.chars().count(),
             KeyCode::Tab => {
                 if let Some(cmd) = suggestions.first().and_then(|f| f.split(" — ").next()) {
                     *input = cmd.to_string();
+                    *caret = input.chars().count();
                     *suggestions = cmd::slash_suggestions(input);
                 }
             }
             KeyCode::Enter => {
                 let cmd = std::mem::take(input);
+                *caret = 0;
                 if !cmd.trim().is_empty() {
                     out.push(format!("> {cmd}"));
                     let mut res = cmd::exec(&cmd);
@@ -1741,6 +1799,9 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     *history_idx = None;
                     let excess = out.len().saturating_sub(200);
                     out.drain(..excess);
+                } else {
+                    // empty Enter shows a fresh prompt echo, like a real shell
+                    out.push("> ".into());
                 }
                 *suggestions = Vec::new();
             }
@@ -1751,6 +1812,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     let idx = history_idx.map_or(history.len() - 1, |i| i.saturating_sub(1));
                     *history_idx = Some(idx);
                     *input = history[idx].clone();
+                    *caret = input.chars().count();
                     *suggestions = cmd::slash_suggestions(input);
                 }
             }
@@ -1759,10 +1821,12 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     if idx + 1 < history.len() {
                         *history_idx = Some(idx + 1);
                         *input = history[idx + 1].clone();
+                        *caret = input.chars().count();
                         *suggestions = cmd::slash_suggestions(input);
                     } else {
                         *history_idx = None;
                         input.clear();
+                        *caret = 0;
                         *suggestions = Vec::new();
                     }
                 }
@@ -2732,6 +2796,7 @@ fn draw(f: &mut Frame, st: &mut State) {
             out,
             scroll,
             suggestions,
+            caret,
             ..
         } => {
             let h = 20u16.min(st.area.height.saturating_sub(2));
@@ -2828,7 +2893,14 @@ fn draw(f: &mut Frame, st: &mut State) {
             lines.extend(extra);
             lines.push(input_line);
 
+            let rows = lines.len().min(avail);
             f.render_widget(Paragraph::new(lines), inner);
+            // real blinking terminal cursor at the caret — the input line is
+            // always the last rendered row; prompt "❯ " is 2 columns wide
+            f.set_cursor_position((
+                inner.x + 2 + *caret as u16,
+                inner.y + rows.saturating_sub(1) as u16,
+            ));
         }
         Mode::Text {
             title,
