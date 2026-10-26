@@ -1707,7 +1707,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                     scroll: 0,
                     history: Vec::new(),
                     history_idx: None,
-                    suggestions: Vec::new(),
+                    suggestions: cmd::slash_suggestions(""), // lista completa ao abrir
                     caret: 0,
                     hint: None,
                     tab_from: None,
