@@ -12,9 +12,9 @@ use ratatui::crossterm::event::{
 };
 use ratatui::crossterm::execute;
 use ratatui::crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use ratatui::layout::{Alignment, Constraint, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Layout, Margin, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols::border;
 use ratatui::text::{Line, Span};
@@ -22,7 +22,7 @@ use ratatui::widgets::{Block, Clear, List, ListItem, Paragraph, Row, Table};
 use ratatui::{Frame, Terminal};
 
 const TICK_SECS: u64 = 1;
-const SPINNER: [&str; 4] = ["▘", "▝", "▗", "▖"];
+const SPINNER: [&str; 8] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠶", "⠷"];
 // ---- tema em tempo de execução — o terminal ':' (tecla dois-pontos) mexe nisto ----
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -39,7 +39,7 @@ enum GaugeKind {
     Circulo,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 struct Theme {
     bg: Color,
     cy: Color,
@@ -96,6 +96,7 @@ impl Theme {
     }
 
     #[rustfmt::skip]
+    #[allow(clippy::too_many_arguments)]
     fn montar(
         bg: Color, cy: Color, mag: Color, grn: Color, yel: Color, red: Color,
         gray: Color, blu: Color, lblu: Color, lred: Color, wht: Color, blk: Color,
@@ -106,96 +107,205 @@ impl Theme {
 
     fn gruvbox() -> Self {
         Self::montar(
-            Color::Rgb(40, 40, 40), Color::Rgb(131, 165, 152), Color::Rgb(211, 134, 155),
-            Color::Rgb(184, 187, 38), Color::Rgb(250, 189, 47), Color::Rgb(251, 73, 52),
-            Color::Rgb(146, 131, 116), Color::Rgb(69, 133, 136), Color::Rgb(254, 128, 25),
-            Color::Rgb(214, 93, 14), Color::Rgb(235, 219, 178), Color::Rgb(30, 30, 30),
-            BorderKind::Linha, GaugeKind::Quadrado,
+            Color::Rgb(40, 40, 40),
+            Color::Rgb(131, 165, 152),
+            Color::Rgb(211, 134, 155),
+            Color::Rgb(184, 187, 38),
+            Color::Rgb(250, 189, 47),
+            Color::Rgb(251, 73, 52),
+            Color::Rgb(146, 131, 116),
+            Color::Rgb(69, 133, 136),
+            Color::Rgb(254, 128, 25),
+            Color::Rgb(214, 93, 14),
+            Color::Rgb(235, 219, 178),
+            Color::Rgb(30, 30, 30),
+            BorderKind::Linha,
+            GaugeKind::Quadrado,
         )
     }
     fn nord() -> Self {
         Self::montar(
-            Color::Rgb(46, 52, 64), Color::Rgb(136, 192, 208), Color::Rgb(180, 142, 173),
-            Color::Rgb(163, 190, 140), Color::Rgb(235, 203, 139), Color::Rgb(191, 97, 106),
-            Color::Rgb(76, 86, 106), Color::Rgb(59, 66, 82), Color::Rgb(129, 161, 193),
-            Color::Rgb(208, 135, 112), Color::Rgb(236, 239, 244), Color::Rgb(36, 42, 54),
-            BorderKind::Linha, GaugeKind::Circulo,
+            Color::Rgb(46, 52, 64),
+            Color::Rgb(136, 192, 208),
+            Color::Rgb(180, 142, 173),
+            Color::Rgb(163, 190, 140),
+            Color::Rgb(235, 203, 139),
+            Color::Rgb(191, 97, 106),
+            Color::Rgb(76, 86, 106),
+            Color::Rgb(59, 66, 82),
+            Color::Rgb(129, 161, 193),
+            Color::Rgb(208, 135, 112),
+            Color::Rgb(236, 239, 244),
+            Color::Rgb(36, 42, 54),
+            BorderKind::Linha,
+            GaugeKind::Circulo,
         )
     }
     fn catppuccin() -> Self {
         Self::montar(
-            Color::Rgb(30, 30, 46), Color::Rgb(137, 220, 235), Color::Rgb(245, 194, 231),
-            Color::Rgb(166, 227, 161), Color::Rgb(249, 226, 175), Color::Rgb(243, 139, 168),
-            Color::Rgb(108, 112, 134), Color::Rgb(49, 50, 68), Color::Rgb(250, 179, 135),
-            Color::Rgb(250, 128, 114), Color::Rgb(205, 214, 244), Color::Rgb(24, 24, 37),
-            BorderKind::Linha, GaugeKind::Quadrado,
+            Color::Rgb(30, 30, 46),
+            Color::Rgb(137, 220, 235),
+            Color::Rgb(245, 194, 231),
+            Color::Rgb(166, 227, 161),
+            Color::Rgb(249, 226, 175),
+            Color::Rgb(243, 139, 168),
+            Color::Rgb(108, 112, 134),
+            Color::Rgb(49, 50, 68),
+            Color::Rgb(250, 179, 135),
+            Color::Rgb(250, 128, 114),
+            Color::Rgb(205, 214, 244),
+            Color::Rgb(24, 24, 37),
+            BorderKind::Linha,
+            GaugeKind::Quadrado,
         )
     }
     fn tokyo() -> Self {
         Self::montar(
-            Color::Rgb(26, 27, 38), Color::Rgb(125, 207, 255), Color::Rgb(187, 154, 247),
-            Color::Rgb(158, 206, 106), Color::Rgb(224, 175, 108), Color::Rgb(247, 118, 142),
-            Color::Rgb(86, 95, 137), Color::Rgb(22, 22, 30), Color::Rgb(255, 158, 100),
-            Color::Rgb(219, 75, 75), Color::Rgb(169, 177, 214), Color::Rgb(22, 22, 30),
-            BorderKind::Dupla, GaugeKind::Circulo,
+            Color::Rgb(26, 27, 38),
+            Color::Rgb(125, 207, 255),
+            Color::Rgb(187, 154, 247),
+            Color::Rgb(158, 206, 106),
+            Color::Rgb(224, 175, 108),
+            Color::Rgb(247, 118, 142),
+            Color::Rgb(86, 95, 137),
+            Color::Rgb(22, 22, 30),
+            Color::Rgb(255, 158, 100),
+            Color::Rgb(219, 75, 75),
+            Color::Rgb(169, 177, 214),
+            Color::Rgb(22, 22, 30),
+            BorderKind::Dupla,
+            GaugeKind::Circulo,
         )
     }
     fn solarized() -> Self {
         Self::montar(
-            Color::Rgb(0, 43, 54), Color::Rgb(42, 161, 152), Color::Rgb(211, 54, 130),
-            Color::Rgb(133, 153, 0), Color::Rgb(181, 137, 0), Color::Rgb(220, 50, 47),
-            Color::Rgb(88, 110, 117), Color::Rgb(7, 54, 66), Color::Rgb(203, 75, 22),
-            Color::Rgb(38, 139, 210), Color::Rgb(238, 232, 213), Color::Rgb(0, 30, 40),
-            BorderKind::Linha, GaugeKind::Quadrado,
+            Color::Rgb(0, 43, 54),
+            Color::Rgb(42, 161, 152),
+            Color::Rgb(211, 54, 130),
+            Color::Rgb(133, 153, 0),
+            Color::Rgb(181, 137, 0),
+            Color::Rgb(220, 50, 47),
+            Color::Rgb(88, 110, 117),
+            Color::Rgb(7, 54, 66),
+            Color::Rgb(203, 75, 22),
+            Color::Rgb(38, 139, 210),
+            Color::Rgb(238, 232, 213),
+            Color::Rgb(0, 30, 40),
+            BorderKind::Linha,
+            GaugeKind::Quadrado,
         )
     }
     fn synthwave() -> Self {
         Self::montar(
-            Color::Rgb(43, 33, 58), Color::Rgb(0, 240, 255), Color::Rgb(255, 126, 219),
-            Color::Rgb(114, 241, 184), Color::Rgb(253, 244, 110), Color::Rgb(254, 68, 80),
-            Color::Rgb(124, 108, 166), Color::Rgb(34, 26, 51), Color::Rgb(255, 183, 120),
-            Color::Rgb(255, 94, 158), Color::Rgb(236, 224, 255), Color::Rgb(24, 18, 35),
-            BorderKind::Grossa, GaugeKind::Circulo,
+            Color::Rgb(43, 33, 58),
+            Color::Rgb(0, 240, 255),
+            Color::Rgb(255, 126, 219),
+            Color::Rgb(114, 241, 184),
+            Color::Rgb(253, 244, 110),
+            Color::Rgb(254, 68, 80),
+            Color::Rgb(124, 108, 166),
+            Color::Rgb(34, 26, 51),
+            Color::Rgb(255, 183, 120),
+            Color::Rgb(255, 94, 158),
+            Color::Rgb(236, 224, 255),
+            Color::Rgb(24, 18, 35),
+            BorderKind::Grossa,
+            GaugeKind::Circulo,
         )
     }
     fn matrix() -> Self {
         Self::montar(
-            Color::Rgb(0, 10, 0), Color::Rgb(0, 255, 70), Color::Rgb(0, 160, 40),
-            Color::Rgb(0, 255, 120), Color::Rgb(120, 255, 120), Color::Rgb(200, 60, 30),
-            Color::Rgb(0, 100, 30), Color::Rgb(0, 40, 10), Color::Rgb(80, 255, 140),
-            Color::Rgb(0, 130, 50), Color::Rgb(180, 255, 190), Color::Rgb(0, 5, 0),
-            BorderKind::Linha, GaugeKind::Quadrado,
+            Color::Rgb(0, 10, 0),
+            Color::Rgb(0, 255, 70),
+            Color::Rgb(0, 160, 40),
+            Color::Rgb(0, 255, 120),
+            Color::Rgb(120, 255, 120),
+            Color::Rgb(200, 60, 30),
+            Color::Rgb(0, 100, 30),
+            Color::Rgb(0, 40, 10),
+            Color::Rgb(80, 255, 140),
+            Color::Rgb(0, 130, 50),
+            Color::Rgb(180, 255, 190),
+            Color::Rgb(0, 5, 0),
+            BorderKind::Linha,
+            GaugeKind::Quadrado,
         )
     }
     fn candy() -> Self {
         Self::montar(
-            Color::Rgb(40, 12, 36), Color::Rgb(0, 229, 255), Color::Rgb(255, 64, 196),
-            Color::Rgb(0, 255, 128), Color::Rgb(255, 214, 0), Color::Rgb(255, 45, 85),
-            Color::Rgb(180, 120, 170), Color::Rgb(60, 20, 50), Color::Rgb(255, 170, 220),
-            Color::Rgb(200, 80, 255), Color::Rgb(255, 240, 250), Color::Rgb(28, 8, 26),
-            BorderKind::Dupla, GaugeKind::Circulo,
+            Color::Rgb(40, 12, 36),
+            Color::Rgb(0, 229, 255),
+            Color::Rgb(255, 64, 196),
+            Color::Rgb(0, 255, 128),
+            Color::Rgb(255, 214, 0),
+            Color::Rgb(255, 45, 85),
+            Color::Rgb(180, 120, 170),
+            Color::Rgb(60, 20, 50),
+            Color::Rgb(255, 170, 220),
+            Color::Rgb(200, 80, 255),
+            Color::Rgb(255, 240, 250),
+            Color::Rgb(28, 8, 26),
+            BorderKind::Dupla,
+            GaugeKind::Circulo,
         )
     }
     fn ember() -> Self {
         Self::montar(
-            Color::Rgb(26, 16, 12), Color::Rgb(255, 160, 70), Color::Rgb(255, 90, 60),
-            Color::Rgb(210, 140, 60), Color::Rgb(255, 210, 90), Color::Rgb(255, 60, 40),
-            Color::Rgb(140, 100, 80), Color::Rgb(60, 30, 20), Color::Rgb(255, 190, 120),
-            Color::Rgb(200, 70, 30), Color::Rgb(255, 230, 200), Color::Rgb(20, 12, 9),
-            BorderKind::Grossa, GaugeKind::Quadrado,
+            Color::Rgb(26, 16, 12),
+            Color::Rgb(255, 160, 70),
+            Color::Rgb(255, 90, 60),
+            Color::Rgb(210, 140, 60),
+            Color::Rgb(255, 210, 90),
+            Color::Rgb(255, 60, 40),
+            Color::Rgb(140, 100, 80),
+            Color::Rgb(60, 30, 20),
+            Color::Rgb(255, 190, 120),
+            Color::Rgb(200, 70, 30),
+            Color::Rgb(255, 230, 200),
+            Color::Rgb(20, 12, 9),
+            BorderKind::Grossa,
+            GaugeKind::Quadrado,
         )
     }
     fn mono() -> Self {
         Self::montar(
-            Color::Rgb(18, 18, 18), Color::Rgb(220, 220, 220), Color::Rgb(170, 170, 170),
-            Color::Rgb(200, 200, 200), Color::Rgb(240, 240, 240), Color::Rgb(255, 255, 255),
-            Color::Rgb(90, 90, 90), Color::Rgb(40, 40, 40), Color::Rgb(150, 150, 150),
-            Color::Rgb(120, 120, 120), Color::Rgb(255, 255, 255), Color::Rgb(8, 8, 8),
-            BorderKind::Dupla, GaugeKind::Quadrado,
+            Color::Rgb(18, 18, 18),
+            Color::Rgb(220, 220, 220),
+            Color::Rgb(170, 170, 170),
+            Color::Rgb(200, 200, 200),
+            Color::Rgb(240, 240, 240),
+            Color::Rgb(255, 255, 255),
+            Color::Rgb(90, 90, 90),
+            Color::Rgb(40, 40, 40),
+            Color::Rgb(150, 150, 150),
+            Color::Rgb(120, 120, 120),
+            Color::Rgb(255, 255, 255),
+            Color::Rgb(8, 8, 8),
+            BorderKind::Dupla,
+            GaugeKind::Quadrado,
+        )
+    }
+    fn carmesim() -> Self {
+        Self::montar(
+            Color::Rgb(15, 4, 6),
+            Color::Rgb(245, 110, 80),
+            Color::Rgb(210, 70, 80),
+            Color::Rgb(150, 210, 150),
+            Color::Rgb(250, 195, 85),
+            Color::Rgb(230, 80, 80),
+            Color::Rgb(180, 145, 145),
+            Color::Rgb(140, 115, 125),
+            Color::Rgb(110, 85, 95),
+            Color::Rgb(200, 95, 95),
+            Color::Rgb(250, 235, 240),
+            Color::Rgb(6, 1, 2),
+            BorderKind::Grossa,
+            GaugeKind::Quadrado,
         )
     }
 }
 
+#[allow(clippy::type_complexity)]
 const THEME_LIST: &[(&str, fn() -> Theme)] = &[
     ("pixel", Theme::pixel),
     ("dracula", Theme::dracula),
@@ -209,26 +319,55 @@ const THEME_LIST: &[(&str, fn() -> Theme)] = &[
     ("candy", Theme::candy),
     ("ember", Theme::ember),
     ("mono", Theme::mono),
+    ("carmesim", Theme::carmesim),
 ];
 
 static THEME: OnceLock<RwLock<Theme>> = OnceLock::new();
 
 fn t() -> Theme {
-    *THEME.get_or_init(|| RwLock::new(Theme::pixel())).read().unwrap()
+    *THEME
+        .get_or_init(|| RwLock::new(Theme::pixel()))
+        .read()
+        .unwrap()
 }
 
-fn c_bg() -> Color { t().bg }
-fn c_cy() -> Color { t().cy }
-fn c_mag() -> Color { t().mag }
-fn c_grn() -> Color { t().grn }
-fn c_yel() -> Color { t().yel }
-fn c_red() -> Color { t().red }
-fn c_gray() -> Color { t().gray }
-fn c_blu() -> Color { t().blu }
-fn c_lblu() -> Color { t().lblu }
-fn c_lred() -> Color { t().lred }
-fn c_wht() -> Color { t().wht }
-fn c_blk() -> Color { t().blk }
+fn c_bg() -> Color {
+    t().bg
+}
+fn c_cy() -> Color {
+    t().cy
+}
+fn c_mag() -> Color {
+    t().mag
+}
+fn c_grn() -> Color {
+    t().grn
+}
+fn c_yel() -> Color {
+    t().yel
+}
+fn c_red() -> Color {
+    t().red
+}
+fn c_gray() -> Color {
+    t().gray
+}
+#[allow(dead_code)]
+fn c_blu() -> Color {
+    t().blu
+}
+fn c_lblu() -> Color {
+    t().lblu
+}
+fn c_lred() -> Color {
+    t().lred
+}
+fn c_wht() -> Color {
+    t().wht
+}
+fn c_blk() -> Color {
+    t().blk
+}
 
 fn pal() -> [Color; 6] {
     [c_cy(), c_mag(), c_grn(), c_yel(), c_lblu(), c_lred()]
@@ -298,6 +437,86 @@ fn hex_of(c: Color) -> String {
     }
 }
 
+// --- slash command helpers ---
+
+const SLASH_CMDS: &[(&str, &str)] = &[
+    ("/help", "show this help"),
+    ("/bg <hex>", "set background color"),
+    (
+        "/color <name> <hex>",
+        "set color (cyan pink green yellow red gray blue peach orange white black)",
+    ),
+    ("/border <pixel|line|double|thick>", "set border style"),
+    ("/gauge <square|circle>", "set gauge style"),
+    (
+        "/theme <name>",
+        "set theme (pixel dracula gruvbox nord catppuccin tokyo solarized synthwave matrix candy ember mono carmesim)",
+    ),
+    ("/lang <en|pt>", "set language"),
+    ("/show", "show current theme values"),
+    ("/save", "save config to ~/.config/ratscope/config.json"),
+    ("/reset", "reset to pixel theme"),
+    ("/hosts", "list docker hosts"),
+    (
+        "/hosts add <endpoint>",
+        "add docker host (tcp://... or ssh://...)",
+    ),
+    ("/hosts rm <endpoint>", "remove docker host"),
+    ("/hosts set <endpoint>", "set active docker host"),
+];
+
+fn slash_suggestions(prefix: &str) -> Vec<String> {
+    let p = prefix.trim().to_lowercase();
+    if p.is_empty() {
+        return SLASH_CMDS
+            .iter()
+            .map(|(c, d)| format!("{c} — {d}"))
+            .collect();
+    }
+    SLASH_CMDS
+        .iter()
+        .filter(|(c, _)| c.starts_with(&p))
+        .map(|(c, d)| format!("{c} — {d}"))
+        .collect()
+}
+
+fn did_you_mean(cmd: &str) -> Option<String> {
+    let c = cmd.trim().to_lowercase();
+    if c.is_empty() {
+        return None;
+    }
+    // strip leading / for comparison — exec_cmd accepts both /cmd and cmd
+    let c = c.strip_prefix('/').unwrap_or(&c);
+    SLASH_CMDS
+        .iter()
+        .map(|(s, _)| s.trim_start_matches('/').to_lowercase())
+        .min_by_key(|s| levenshtein(c, s))
+        .filter(|s| levenshtein(c, s) <= 3 && *s != c)
+        .map(|s| format!("did you mean /{s}?"))
+}
+
+#[allow(clippy::needless_range_loop)]
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    let mut dp = vec![vec![0; b.len() + 1]; a.len() + 1];
+    for i in 0..=a.len() {
+        dp[i][0] = i;
+    }
+    for j in 0..=b.len() {
+        dp[0][j] = j;
+    }
+    for i in 1..=a.len() {
+        for j in 1..=b.len() {
+            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            dp[i][j] = (dp[i - 1][j] + 1)
+                .min(dp[i][j - 1] + 1)
+                .min(dp[i - 1][j - 1] + cost);
+        }
+    }
+    dp[a.len()][b.len()]
+}
+
 fn config_arquivo() -> Option<std::path::PathBuf> {
     let home = std::env::var("HOME").ok()?;
     Some(std::path::Path::new(&home).join(".config/ratscope/config.json"))
@@ -336,22 +555,50 @@ fn salvar_config() -> Result<String, String> {
 // tema salvo sobrepõe o padrão no boot; erros são ignorados de propósito
 fn carregar_config() {
     let Some(p) = config_arquivo() else { return };
-    let Ok(txt) = std::fs::read_to_string(p) else { return };
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) else { return };
+    let Ok(txt) = std::fs::read_to_string(p) else {
+        return;
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) else {
+        return;
+    };
     let cor = |k: &str| v[k].as_str().and_then(parse_hex);
     mudar_tema(|t| {
-        if let Some(c) = cor("bg") { t.bg = c; }
-        if let Some(c) = cor("cy") { t.cy = c; }
-        if let Some(c) = cor("mag") { t.mag = c; }
-        if let Some(c) = cor("grn") { t.grn = c; }
-        if let Some(c) = cor("yel") { t.yel = c; }
-        if let Some(c) = cor("red") { t.red = c; }
-        if let Some(c) = cor("gray") { t.gray = c; }
-        if let Some(c) = cor("blu") { t.blu = c; }
-        if let Some(c) = cor("lblu") { t.lblu = c; }
-        if let Some(c) = cor("lred") { t.lred = c; }
-        if let Some(c) = cor("wht") { t.wht = c; }
-        if let Some(c) = cor("blk") { t.blk = c; }
+        if let Some(c) = cor("bg") {
+            t.bg = c;
+        }
+        if let Some(c) = cor("cy") {
+            t.cy = c;
+        }
+        if let Some(c) = cor("mag") {
+            t.mag = c;
+        }
+        if let Some(c) = cor("grn") {
+            t.grn = c;
+        }
+        if let Some(c) = cor("yel") {
+            t.yel = c;
+        }
+        if let Some(c) = cor("red") {
+            t.red = c;
+        }
+        if let Some(c) = cor("gray") {
+            t.gray = c;
+        }
+        if let Some(c) = cor("blu") {
+            t.blu = c;
+        }
+        if let Some(c) = cor("lblu") {
+            t.lblu = c;
+        }
+        if let Some(c) = cor("lred") {
+            t.lred = c;
+        }
+        if let Some(c) = cor("wht") {
+            t.wht = c;
+        }
+        if let Some(c) = cor("blk") {
+            t.blk = c;
+        }
         t.border = match v["borda"].as_str() {
             Some("linha") => BorderKind::Linha,
             Some("dupla") => BorderKind::Dupla,
@@ -374,40 +621,139 @@ fn carregar_config() {
 fn exec_cmd(cmd: &str) -> Vec<String> {
     let bad = |m: &str| vec![format!("✖ {m}")];
     let ok = || vec![tr("✔ done", "✔ feito").to_string()];
-    let ws: Vec<&str> = cmd.split_whitespace().collect();
-    match ws.as_slice() {
-        ["help" | "ajuda"] => vec![
-            "commands:".into(),
-            "  bg <hex>                   e.g. bg #10101A".into(),
-            "  color <name> <hex>         cyan pink green yellow red".into(),
-            "                             gray blue peach orange white black".into(),
-            "  border <pixel|line|double|thick>".into(),
-            "  gauge <square|circle>".into(),
-            "  theme <name>              pixel dracula gruvbox nord catppuccin tokyo".into(),
-            "                            solarized synthwave matrix candy ember mono".into(),
-            "  lang <en|pt>               interface language".into(),
-            "  show                       current values".into(),
-            "  save                       writes ~/.config/ratscope/config.json".into(),
-            "  reset                      back to the pixel theme".into(),
-        ],
-        ["lang", "en"] => {
+    let raw = cmd.trim();
+    if raw.is_empty() {
+        return vec![];
+    }
+    let ws: Vec<&str> = raw.split_whitespace().collect();
+    if ws.is_empty() {
+        return vec![];
+    }
+    let (cmd_name, args) = if ws[0].starts_with('/') {
+        (&ws[0][1..], &ws[1..])
+    } else {
+        (ws[0], &ws[1..])
+    };
+    match (cmd_name, args) {
+        ("help" | "ajuda" | "h", _) => {
+            vec![
+                tr("**Appearance**", "**Aparência**").to_string(),
+                format!(
+                    "  /{:<28} — {}",
+                    "theme <name>",
+                    tr(
+                        "set theme (pixel, dracula, gruvbox, nord, catppuccin, tokyo, solarized, synthwave, matrix, candy, ember, mono, carmesim)",
+                        "define tema (pixel, dracula, gruvbox, nord, catppuccin, tokyo, solarized, synthwave, matrix, candy, ember, mono, carmesim)"
+                    )
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "bg <hex>",
+                    tr(
+                        "background color (e.g. /bg #10101A)",
+                        "cor de fundo (ex: /bg #10101A)"
+                    )
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "color <name> <hex>",
+                    tr(
+                        "set color: cyan pink green yellow red gray blue peach orange white black",
+                        "define cor: cyan pink green yellow red gray blue peach orange white black"
+                    )
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "border <pixel|line|double|thick>",
+                    tr("border style", "estilo de borda")
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "gauge <square|circle>",
+                    tr("gauge style", "estilo de medidor")
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "reset",
+                    tr("back to pixel theme", "volta ao tema pixel")
+                ),
+                String::new(),
+                tr("**Display**", "**Exibição**").to_string(),
+                format!(
+                    "  /{:<28} — {}",
+                    "show",
+                    tr("show current theme values", "mostra valores do tema atual")
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "lang <en|pt>",
+                    tr("interface language", "idioma da interface")
+                ),
+                String::new(),
+                tr("**Docker Hosts**", "**Hosts Docker**").to_string(),
+                format!(
+                    "  /{:<28} — {}",
+                    "hosts",
+                    tr(
+                        "list configured docker hosts",
+                        "lista hosts docker configurados"
+                    )
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "hosts add <endpoint>",
+                    tr(
+                        "add docker host (tcp://host:2376 or ssh://user@host)",
+                        "adiciona host docker (tcp://host:2376 ou ssh://user@host)"
+                    )
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "hosts rm <endpoint>",
+                    tr("remove docker host", "remove host docker")
+                ),
+                format!(
+                    "  /{:<28} — {}",
+                    "hosts set <endpoint>",
+                    tr("set active docker host", "define host docker ativo")
+                ),
+                String::new(),
+                tr("**Config**", "**Config**").to_string(),
+                format!(
+                    "  /{:<28} — {}",
+                    "save",
+                    tr(
+                        "write ~/.config/ratscope/config.json",
+                        "salva ~/.config/ratscope/config.json"
+                    )
+                ),
+                format!("  /{:<28} — {}", "help", tr("this help", "esta ajuda")),
+            ]
+        }
+        ("lang", ["en"]) => {
             set_lang(Lang::En);
             ok()
         }
-        ["lang", "pt"] => {
+        ("lang", ["pt"]) => {
             set_lang(Lang::Pt);
             ok()
         }
-        ["lang", _] => bad("use: lang en|pt"),
-        ["bg" | "fundo", h] => match parse_hex(h) {
+        ("lang", _) => bad("usage: /lang en|pt"),
+        ("bg" | "fundo", [h]) => match parse_hex(h) {
             Some(c) => {
                 mudar_tema(move |t| t.bg = c);
                 ok()
             }
-            None => bad(tr("invalid hex (e.g. #10101A)", "hex inválido (ex: #10101A)")),
+            None => bad(tr(
+                "invalid hex (e.g. #10101A)",
+                "hex inválido (ex: #10101A)",
+            )),
         },
-        ["color" | "cor", nome, h] => match parse_hex(h) {
-            None => bad(tr("invalid hex (e.g. #FF004D)", "hex inválido (ex: #FF004D)")),
+        ("color" | "cor", [nome, h]) => match parse_hex(h) {
+            None => bad(tr(
+                "invalid hex (e.g. #FF004D)",
+                "hex inválido (ex: #FF004D)",
+            )),
             Some(c) => {
                 let set: fn(&mut Theme, Color) = match *nome {
                     "cyan" | "ciano" => |t, c| t.cy = c,
@@ -423,8 +769,8 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                     "black" | "preto" => |t, c| t.blk = c,
                     _ => {
                         return bad(tr(
-                            "unknown color — 'help' lists the names",
-                            "cor desconhecida — 'ajuda' lista os nomes",
+                            "unknown color — /help lists names",
+                            "cor desconhecida — /ajuda lista nomes",
                         ));
                     }
                 };
@@ -432,7 +778,7 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                 ok()
             }
         },
-        ["border" | "borda", k] => {
+        ("border" | "borda", [k]) => {
             let k = match *k {
                 "pixel" => Some(BorderKind::Pixel),
                 "line" | "linha" => Some(BorderKind::Linha),
@@ -446,12 +792,12 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                     ok()
                 }
                 None => bad(tr(
-                    "use: border pixel|line|double|thick",
-                    "use: borda pixel|linha|dupla|grossa",
+                    "use: /border pixel|line|double|thick",
+                    "use: /borda pixel|linha|dupla|grossa",
                 )),
             }
         }
-        ["gauge" | "medidor", k] => {
+        ("gauge" | "medidor", [k]) => {
             let k = match *k {
                 "square" | "quadrado" => Some(GaugeKind::Quadrado),
                 "circle" | "circulo" => Some(GaugeKind::Circulo),
@@ -463,26 +809,26 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                     ok()
                 }
                 None => bad(tr(
-                    "use: gauge square|circle",
-                    "use: medidor quadrado|circulo",
+                    "use: /gauge square|circle",
+                    "use: /medidor quadrado|circulo",
                 )),
             }
         }
-        ["theme" | "tema", nome] => match THEME_LIST.iter().find(|(n, _)| n == nome) {
+        ("theme" | "tema", [nome]) => match THEME_LIST.iter().find(|(n, _)| n == nome) {
             Some((_, f)) => {
                 mudar_tema(|t| *t = f());
                 ok()
             }
             None => bad(tr(
-                "use: theme pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono",
-                "use: tema pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono",
+                "use: /theme pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono|carmesim",
+                "use: /tema pixel|dracula|gruvbox|nord|catppuccin|tokyo|solarized|synthwave|matrix|candy|ember|mono|carmesim",
             )),
         },
-        ["reset"] => {
+        ("reset", _) => {
             mudar_tema(|t| *t = Theme::pixel());
             ok()
         }
-        ["show" | "ver"] => {
+        ("show" | "ver", _) => {
             let x = t();
             vec![
                 format!(
@@ -530,12 +876,94 @@ fn exec_cmd(cmd: &str) -> Vec<String> {
                 ),
             ]
         }
-        ["save" | "salvar"] => match salvar_config() {
+        ("save" | "salvar", _) => match salvar_config() {
             Ok(p) => vec![tr1("✔ saved to {}", "✔ salvo em {}", &p)],
             Err(e) => bad(&e),
         },
-        [] => vec![],
-        _ => bad(tr("unknown command — 'help' lists", "comando desconhecido — 'ajuda' lista")),
+        ("hosts", ["add", endpoint @ ..]) => {
+            let host = endpoint.join(" ");
+            if host.trim().is_empty() {
+                return bad("usage: /hosts add <endpoint>");
+            }
+            let mut hosts = get_docker_hosts();
+            if !hosts.contains(&host) {
+                hosts.push(host.clone());
+                set_docker_hosts(hosts);
+                set_active_docker_host(Some(host.clone()));
+                vec![tr1(
+                    "✔ docker host {} added and selected",
+                    "✔ docker host {} adicionado e selecionado",
+                    &host,
+                )]
+            } else {
+                bad("host already exists")
+            }
+        }
+        ("hosts", ["rm" | "remove" | "del", endpoint @ ..]) => {
+            let host = endpoint.join(" ");
+            if host.trim().is_empty() {
+                return bad("usage: /hosts rm <endpoint>");
+            }
+            let mut hosts = get_docker_hosts();
+            hosts.retain(|x| *x != host);
+            set_docker_hosts(hosts.clone());
+            if get_active_docker_host() == Some(host.clone()) {
+                set_active_docker_host(None);
+            }
+            vec![tr1(
+                "✔ docker host {} removed",
+                "✔ docker host {} removido",
+                &host,
+            )]
+        }
+        ("hosts", ["set", endpoint @ ..]) => {
+            let host = endpoint.join(" ");
+            if host.trim().is_empty() {
+                return bad("usage: /hosts set <endpoint>");
+            }
+            let hosts = get_docker_hosts();
+            if hosts.contains(&host) {
+                set_active_docker_host(Some(host.clone()));
+                vec![tr1(
+                    "✔ docker host set to {}",
+                    "✔ docker host definido para {}",
+                    &host,
+                )]
+            } else {
+                bad(tr(
+                    "host not found — add it first",
+                    "host não encontrado — adicione primeiro",
+                ))
+            }
+        }
+        ("hosts", _) => {
+            let hosts = get_docker_hosts();
+            let active = get_active_docker_host();
+            if hosts.is_empty() {
+                vec![
+                    tr(
+                        "no docker hosts configured — use /hosts add <endpoint>",
+                        "nenhum docker host configurado — use /hosts add <endpoint>",
+                    )
+                    .to_string(),
+                ]
+            } else {
+                hosts
+                    .into_iter()
+                    .map(|h| {
+                        if Some(&h) == active.as_ref() {
+                            format!("● {h} (active)")
+                        } else {
+                            format!("○ {h}")
+                        }
+                    })
+                    .collect()
+            }
+        }
+        _ => bad(tr(
+            "unknown command — type /help",
+            "comando desconhecido — digite /ajuda",
+        )),
     }
 }
 
@@ -630,12 +1058,26 @@ impl Act {
 fn menu_acts(c: Caller) -> Vec<Act> {
     match c {
         Caller::Docker => vec![
-            Act::Info, Act::Logs, Act::Restart, Act::Pause, Act::Unpause,
-            Act::Stop, Act::Start, Act::Kill, Act::Prune,
+            Act::Info,
+            Act::Logs,
+            Act::Restart,
+            Act::Pause,
+            Act::Unpause,
+            Act::Stop,
+            Act::Start,
+            Act::Kill,
+            Act::Prune,
         ],
         Caller::Unit => vec![
-            Act::Info, Act::Logs, Act::Status, Act::Restart, Act::Reload,
-            Act::Stop, Act::Start, Act::Enable, Act::Disable,
+            Act::Info,
+            Act::Logs,
+            Act::Status,
+            Act::Restart,
+            Act::Reload,
+            Act::Stop,
+            Act::Start,
+            Act::Enable,
+            Act::Disable,
         ],
         Caller::Proc => vec![Act::Info, Act::Kill, Act::Kill9],
     }
@@ -643,7 +1085,10 @@ fn menu_acts(c: Caller) -> Vec<Act> {
 
 // ações dentro da tela de detalhes (Info já está aberta)
 fn detail_acts(c: Caller) -> Vec<Act> {
-    menu_acts(c).into_iter().filter(|a| *a != Act::Info).collect()
+    menu_acts(c)
+        .into_iter()
+        .filter(|a| *a != Act::Info)
+        .collect()
 }
 
 #[derive(Clone)]
@@ -659,6 +1104,17 @@ enum Focus {
     Units,
     Ports,
     Overview,
+}
+
+impl Focus {
+    fn label(&self) -> &'static str {
+        match self {
+            Focus::Docker => "docker",
+            Focus::Units => "systemd",
+            Focus::Ports => "ports",
+            Focus::Overview => "hardware",
+        }
+    }
 }
 
 struct Container {
@@ -686,10 +1142,18 @@ struct ProcRow {
 struct Pc {
     cpu_pct: f32,
     mem_total: u64,
-    mem_used: u64,
+    _mem_used: u64,
     swap_total: u64,
     swap_used: u64,
     mounts: Vec<(String, u64, u64)>, // target, size, used
+    uptime_secs: u64,
+    load1: f32,
+    load5: f32,
+    load15: f32,
+    cpu_model: String,
+    cpu_cores: u32,
+    temp_c: Option<u32>,
+    _mem_available: u64,
 }
 
 struct Snapshot {
@@ -710,15 +1174,52 @@ struct DiskData {
 
 enum Mode {
     Browse,
-    Cmd { input: String, out: Vec<String> },
-    Detail { tgt: Target, hover: usize },
-    Menu { tgt: Target, acts: Vec<Act>, hover: usize },
-    Confirm { tgt: Target, act: Act },
-    Logs { tgt: Target, text: Vec<String>, rx: Receiver<String> },
-    Text { title: String, text: Vec<String>, scroll: usize },
-    Loading { label: String, at: Instant },
-    Disk { data: DiskData },
-    Ctx { items: Vec<(String, bool)>, hover: usize },
+    Cmd {
+        input: String,
+        out: Vec<String>,
+        scroll: usize,
+        history: Vec<String>,
+        history_idx: Option<usize>,
+        suggestions: Vec<String>,
+    },
+    Detail {
+        tgt: Target,
+        hover: usize,
+    },
+    Menu {
+        tgt: Target,
+        acts: Vec<Act>,
+        hover: usize,
+    },
+    Confirm {
+        tgt: Target,
+        act: Act,
+    },
+    Logs {
+        tgt: Target,
+        text: Vec<String>,
+        rx: Receiver<String>,
+    },
+    Text {
+        title: String,
+        text: Vec<String>,
+        scroll: usize,
+    },
+    HardwareInfo {
+        lines: Vec<String>,
+        scroll: usize,
+    },
+    Loading {
+        label: String,
+        at: Instant,
+    },
+    Disk {
+        data: DiskData,
+    },
+    Ctx {
+        items: Vec<(String, bool)>,
+        hover: usize,
+    },
 }
 
 enum Msg {
@@ -763,7 +1264,12 @@ fn run(prog: &str, args: &[&str]) -> Vec<String> {
 
 fn run_out(mut cmd: Command) -> Vec<String> {
     cmd.output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).lines().map(String::from).collect())
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -774,7 +1280,10 @@ fn set_ctx(c: Option<String>) {
 }
 
 fn get_ctx() -> Option<String> {
-    CTX.get_or_init(|| RwLock::new(None)).read().unwrap().clone()
+    CTX.get_or_init(|| RwLock::new(None))
+        .read()
+        .unwrap()
+        .clone()
 }
 
 fn docker_cmd(args: &[&str]) -> Command {
@@ -800,15 +1309,59 @@ fn get_all() -> bool {
 static OVER_SPLIT: OnceLock<RwLock<bool>> = OnceLock::new();
 
 fn set_over_split(v: bool) {
-    *OVER_SPLIT.get_or_init(|| RwLock::new(false)).write().unwrap() = v;
+    *OVER_SPLIT
+        .get_or_init(|| RwLock::new(false))
+        .write()
+        .unwrap() = v;
 }
 
 fn get_over_split() -> bool {
-    *OVER_SPLIT.get_or_init(|| RwLock::new(false)).read().unwrap()
+    *OVER_SPLIT
+        .get_or_init(|| RwLock::new(false))
+        .read()
+        .unwrap()
+}
+
+// hosts docker remotos (além de contextos locais) — persistidos no config.json
+static DOCKER_HOSTS: OnceLock<RwLock<Vec<String>>> = OnceLock::new();
+static ACTIVE_DOCKER_HOST: OnceLock<RwLock<Option<String>>> = OnceLock::new();
+
+fn set_docker_hosts(hosts: Vec<String>) {
+    *DOCKER_HOSTS
+        .get_or_init(|| RwLock::new(Vec::new()))
+        .write()
+        .unwrap() = hosts;
+}
+
+fn get_docker_hosts() -> Vec<String> {
+    DOCKER_HOSTS
+        .get_or_init(|| RwLock::new(Vec::new()))
+        .read()
+        .unwrap()
+        .clone()
+}
+
+fn set_active_docker_host(host: Option<String>) {
+    *ACTIVE_DOCKER_HOST
+        .get_or_init(|| RwLock::new(None))
+        .write()
+        .unwrap() = host;
+}
+
+fn get_active_docker_host() -> Option<String> {
+    ACTIVE_DOCKER_HOST
+        .get_or_init(|| RwLock::new(None))
+        .read()
+        .unwrap()
+        .clone()
 }
 
 fn split(area: Rect) -> [Rect; 3] {
-    let (a, b) = if get_over_split() { (36u16, 63u16) } else { (55u16, 41u16) };
+    let (a, b) = if get_over_split() {
+        (36u16, 63u16)
+    } else {
+        (55u16, 41u16)
+    };
     Layout::vertical([
         Constraint::Percentage(a),
         Constraint::Percentage(b),
@@ -820,7 +1373,10 @@ fn split(area: Rect) -> [Rect; 3] {
 // ---- parsers ----
 
 fn json_lines(lines: &[String]) -> Vec<serde_json::Value> {
-    lines.iter().filter_map(|l| serde_json::from_str(l).ok()).collect()
+    lines
+        .iter()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
 }
 
 // shortcut: os permissões de root ausentes → enable/disable de units de sistema podem falhar; erro vai pro rodapé
@@ -829,7 +1385,7 @@ fn systemctl_units(user: bool, all: bool) -> Vec<UnitRow> {
     if user {
         c.arg("--user");
     }
-    c.args(&[
+    c.args([
         "list-units",
         "--type=service",
         if all { "--all" } else { "--state=running" },
@@ -845,7 +1401,12 @@ fn systemctl_units(user: bool, all: bool) -> Vec<UnitRow> {
             let state = w.next()?.to_string(); // active
             w.next(); // sub
             let desc = w.collect::<Vec<_>>().join(" ");
-            (!name.is_empty() && !desc.is_empty()).then_some(UnitRow { name, desc, state, user })
+            (!name.is_empty() && !desc.is_empty()).then_some(UnitRow {
+                name,
+                desc,
+                state,
+                user,
+            })
         })
         .collect()
 }
@@ -890,7 +1451,9 @@ fn ports() -> Vec<(String, String)> {
 fn cpu_pct() -> f32 {
     static SET: OnceLock<Mutex<Option<(u64, u64)>>> = OnceLock::new();
     let line = std::fs::read_to_string("/proc/stat").unwrap_or_default();
-    let Some(l) = line.lines().next() else { return 0.0 };
+    let Some(l) = line.lines().next() else {
+        return 0.0;
+    };
     let nums: Vec<u64> = l
         .split_whitespace()
         .skip(1)
@@ -905,7 +1468,9 @@ fn cpu_pct() -> f32 {
     let pct = {
         let g = m.lock().unwrap();
         match *g {
-            Some((t0, i0)) if total > t0 => 100.0 * (1.0 - (idle - i0) as f32 / (total - t0) as f32),
+            Some((t0, i0)) if total > t0 => {
+                100.0 * (1.0 - (idle - i0) as f32 / (total - t0) as f32)
+            }
             _ => 0.0, // warmup: primeiro tick sem delta
         }
     };
@@ -934,18 +1499,21 @@ fn meminfo() -> (u64, u64, u64, u64) {
 
 // shortcut: alvos de mount com espaço quebram o parse; caso comum (/, /home, /boot) não tem
 fn mounts() -> Vec<(String, u64, u64)> {
-    run("df", &[
-        "-B1",
-        "-x",
-        "tmpfs",
-        "-x",
-        "devtmpfs",
-        "-x",
-        "efivarfs",
-        "-x",
-        "squashfs",
-        "--output=target,used,size",
-    ])
+    run(
+        "df",
+        &[
+            "-B1",
+            "-x",
+            "tmpfs",
+            "-x",
+            "devtmpfs",
+            "-x",
+            "efivarfs",
+            "-x",
+            "squashfs",
+            "--output=target,used,size",
+        ],
+    )
     .into_iter()
     .skip(1)
     .filter_map(|l| {
@@ -958,42 +1526,111 @@ fn mounts() -> Vec<(String, u64, u64)> {
     .collect()
 }
 
-fn procs_listado(n: usize) -> Vec<ProcRow> {
-    run("ps", &["-eo", "pid,comm,rss,pcpu", "--sort=-rss", "--no-headers"])
-        .into_iter()
-        .filter_map(|l| {
-            let mut w = l.split_whitespace();
-            let pid: u32 = w.next()?.parse().ok()?;
-            let comm = w.next()?.to_string();
-            let rss: u64 = w.next()?.parse().ok()?; // kB
-            let _cpu: f32 = w.next().unwrap_or("0").parse().unwrap_or(0.0);
-            (rss > 0).then_some(ProcRow {
-                pid,
-                comm,
-                rss_b: rss * 1024,
-            })
+fn uptime_load() -> (u64, f32, f32, f32) {
+    let up = std::fs::read_to_string("/proc/uptime")
+        .ok()
+        .and_then(|s| {
+            let first = s.split_whitespace().next().unwrap_or("0").to_string();
+            first.parse::<f64>().ok()
         })
-        .skip(1) // seed: pula o próprio ratscope
-        .take(n)
-        .collect()
+        .unwrap_or(0.0) as u64;
+    let la = std::fs::read_to_string("/proc/loadavg")
+        .ok()
+    .map(|s| {
+        let mut w = s.split_whitespace();
+        (
+            w.next().and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0),
+            w.next().and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0),
+            w.next().and_then(|v| v.parse::<f32>().ok()).unwrap_or(0.0),
+        )
+    })
+        .unwrap_or((0.0, 0.0, 0.0));
+    (up, la.0, la.1, la.2)
+}
+
+fn cpu_info() -> (String, u32) {
+    let txt = std::fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
+    let model = txt
+        .lines()
+        .find(|l| l.starts_with("model name"))
+        .and_then(|l| l.split(':').nth(1))
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown cpu".to_string());
+    let cores = txt.lines().filter(|l| l.starts_with("processor")).count() as u32;
+    (model, cores)
+}
+
+fn cpu_temp() -> Option<u32> {
+    std::fs::read_dir("/sys/class/thermal").ok()?.filter_map(|e| e.ok()).find_map(|e| {
+        let path = e.path().join("temp");
+        std::fs::read_to_string(&path).ok().and_then(|s| {
+            s.trim().parse::<i64>().ok().map(|v| (v / 1000) as u32)
+        })
+    })
+}
+
+fn procs_listado(n: usize) -> Vec<ProcRow> {
+    run(
+        "ps",
+        &["-eo", "pid,comm,rss,pcpu", "--sort=-rss", "--no-headers"],
+    )
+    .into_iter()
+    .filter_map(|l| {
+        let mut w = l.split_whitespace();
+        let pid: u32 = w.next()?.parse().ok()?;
+        let comm = w.next()?.to_string();
+        let rss: u64 = w.next()?.parse().ok()?; // kB
+        let _cpu: f32 = w.next().unwrap_or("0").parse().unwrap_or(0.0);
+        (rss > 0).then_some(ProcRow {
+            pid,
+            comm,
+            rss_b: rss * 1024,
+        })
+    })
+    .skip(1) // seed: pula o próprio ratscope
+    .take(n)
+    .collect()
 }
 
 fn snapshot() -> Snapshot {
-    let stats = json_lines(&run_out(docker_cmd(&["stats", "--no-stream", "--format", "{{json .}}"])));
-    let ps = json_lines(&run_out(docker_cmd(&["ps", "-s", "--format", "{{json .}}"])));
-    let df = json_lines(&run_out(docker_cmd(&["system", "df", "--format", "{{json .}}"])));
+    let stats = json_lines(&run_out(docker_cmd(&[
+        "stats",
+        "--no-stream",
+        "--format",
+        "{{json .}}",
+    ])));
+    let ps = json_lines(&run_out(docker_cmd(&[
+        "ps",
+        "-s",
+        "--format",
+        "{{json .}}",
+    ])));
+    let df = json_lines(&run_out(docker_cmd(&[
+        "system",
+        "df",
+        "--format",
+        "{{json .}}",
+    ])));
     let dk_total = df_all(&df).iter().map(|(_, v)| *v).sum();
     let containers = ps
         .iter()
         .filter_map(|c| {
             let name = c["Names"].as_str()?.to_string();
-            let st = stats.iter().find(|s| s["Name"].as_str() == Some(name.as_str()));
+            let st = stats
+                .iter()
+                .find(|s| s["Name"].as_str() == Some(name.as_str()));
             Some(Container {
                 name,
                 image: c["Image"].as_str().unwrap_or("").to_string(),
                 status: c["Status"].as_str().unwrap_or("").to_string(),
-                cpu: st.and_then(|s| s["CPUPerc"].as_str()).unwrap_or("-").to_string(),
-                mem: st.and_then(|s| s["MemPerc"].as_str()).unwrap_or("-").to_string(),
+                cpu: st
+                    .and_then(|s| s["CPUPerc"].as_str())
+                    .unwrap_or("-")
+                    .to_string(),
+                mem: st
+                    .and_then(|s| s["MemPerc"].as_str())
+                    .unwrap_or("-")
+                    .to_string(),
                 size_b: size_bytes(c["Size"].as_str().unwrap_or("")),
             })
         })
@@ -1001,16 +1638,35 @@ fn snapshot() -> Snapshot {
     // shortcut: docker_ok = "algum retorno"; docker vivo sem containers mostra como morto
     let docker_ok = !stats.is_empty() || !ps.is_empty();
     let (mt, ma, swt, swf) = meminfo();
+    let (up, l1, l5, l15) = uptime_load();
+    let (cpu_model, cpu_cores) = cpu_info();
+    let temp_c = cpu_temp();
     let pc = Pc {
         cpu_pct: cpu_pct(),
         mem_total: mt,
-        mem_used: mt.saturating_sub(ma),
+        _mem_used: mt.saturating_sub(ma),
         swap_total: swt,
         swap_used: swt.saturating_sub(swf),
         mounts: mounts(),
+        uptime_secs: up,
+        load1: l1,
+        load5: l5,
+        load15: l15,
+        cpu_model,
+        cpu_cores,
+        temp_c,
+        _mem_available: ma,
     };
     let procs = procs_listado(12);
-    Snapshot { containers, units: units(), ports: ports(), procs, pc, docker_ok, dk_total }
+    Snapshot {
+        containers,
+        units: units(),
+        ports: ports(),
+        procs,
+        pc,
+        docker_ok,
+        dk_total,
+    }
 }
 
 // docker system df --format json vem um obj por linha OU array; aceita ambos
@@ -1048,10 +1704,7 @@ fn cat_label(t: &str) -> String {
 }
 
 fn trunc(s: &str, n: usize) -> String {
-    s.chars()
-        .take(n - 1)
-        .collect::<String>()
-        + (if s.chars().count() > n - 1 { "…" } else { "" })
+    s.chars().take(n - 1).collect::<String>() + (if s.chars().count() > n - 1 { "…" } else { "" })
 }
 
 // medidor de preenchimento conforme o tema
@@ -1116,18 +1769,28 @@ fn parse_pct(s: &str) -> f32 {
 
 fn spark(vals: &[f32]) -> String {
     const S: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    vals.iter().rev().take(8).rev().map(|v| S[((*v / 100.0) * 7.0).round().clamp(0.0, 7.0) as usize]).collect()
+    vals.iter()
+        .rev()
+        .take(8)
+        .rev()
+        .map(|v| S[((*v / 100.0) * 7.0).round().clamp(0.0, 7.0) as usize])
+        .collect()
 }
 
 fn spark_full(vals: &[f32]) -> String {
     const S: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
-    vals.iter().map(|v| S[((*v / 100.0) * 7.0).round().clamp(0.0, 7.0) as usize]).collect()
+    vals.iter()
+        .map(|v| S[((*v / 100.0) * 7.0).round().clamp(0.0, 7.0) as usize])
+        .collect()
 }
 
 // barra empilhada: (bytes, cor) + resto cinza; cada categoria tem presença mínima de 1 coluna
 fn bar_stack(w: usize, total: u64, parts: &[(u64, Color)]) -> Vec<Span<'static>> {
     if total == 0 || w == 0 {
-        return vec![Span::styled(" — sem dados".to_string(), Style::new().fg(c_gray()))];
+        return vec![Span::styled(
+            " — sem dados".to_string(),
+            Style::new().fg(c_gray()),
+        )];
     }
     let mut spans = Vec::new();
     let mut used_w = 0usize;
@@ -1144,7 +1807,10 @@ fn bar_stack(w: usize, total: u64, parts: &[(u64, Color)]) -> Vec<Span<'static>>
         used_w += cw;
     }
     if used_w < w {
-        spans.push(Span::styled("▒".repeat(w - used_w), Style::new().fg(c_gray())));
+        spans.push(Span::styled(
+            "▒".repeat(w - used_w),
+            Style::new().fg(c_gray()),
+        ));
     }
     spans
 }
@@ -1439,7 +2105,12 @@ fn apply_ctx(st: &mut State, name: String, tx: &Sender<Msg>) {
 
 fn spawn_disk(tx: Sender<Msg>) {
     std::thread::spawn(move || {
-        let df = json_lines(&run_out(docker_cmd(&["system", "df", "--format", "{{json .}}"])));
+        let df = json_lines(&run_out(docker_cmd(&[
+            "system",
+            "df",
+            "--format",
+            "{{json .}}",
+        ])));
         let cats = df_all(&df);
         let total = cats.iter().map(|(_, v)| *v).sum();
         let imgs_raw = json_lines(&run_out(docker_cmd(&["images", "--format", "{{json .}}"])));
@@ -1459,7 +2130,11 @@ fn spawn_disk(tx: Sender<Msg>) {
             .collect();
         images.sort_by_key(|i| i.1);
         images.reverse();
-        let _ = tx.send(Msg::Disk(DiskData { total, cats, images }));
+        let _ = tx.send(Msg::Disk(DiskData {
+            total,
+            cats,
+            images,
+        }));
     });
 }
 
@@ -1490,7 +2165,10 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             KeyCode::Char('a') => {
                 set_all(!get_all());
                 let msg = if get_all() {
-                    tr("systemd: showing all units", "systemd: mostrando todos os units")
+                    tr(
+                        "systemd: showing all units",
+                        "systemd: mostrando todos os units",
+                    )
                 } else {
                     tr("systemd: running only", "systemd: só rodando")
                 };
@@ -1522,7 +2200,7 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
                             let cur = v["Current"].as_bool().unwrap_or_else(|| {
                                 v["Current"]
                                     .as_str()
-                                    .map_or(false, |s| s.contains('t') || s.contains('*'))
+                                    .is_some_and(|s| s.contains('t') || s.contains('*'))
                             });
                             Some((n, cur))
                         })
@@ -1536,29 +2214,90 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             KeyCode::Left => move_scroll(st, -1),
             KeyCode::Enter => open_menu(st),
             KeyCode::Char('v') => open_detail(st),
+            KeyCode::Char('H') | KeyCode::Char('h') => {
+                st.mode = Mode::HardwareInfo {
+                    lines: hardware_lines(&st.snap),
+                    scroll: 0,
+                };
+            }
             KeyCode::Char(':') => {
                 st.mode = Mode::Cmd {
                     input: String::new(),
-                    out: vec!["theme terminal — type 'help' for commands · Esc closes".into()],
+                    out: vec!["theme terminal — type /help for commands · Esc closes".into()],
+                    scroll: 0,
+                    history: Vec::new(),
+                    history_idx: None,
+                    suggestions: Vec::new(),
                 };
             }
             _ => {}
         },
-        Mode::Cmd { input, out } => match k.code {
-            KeyCode::Char(c) => input.push(c),
+        Mode::Cmd {
+            input,
+            out,
+            scroll,
+            history,
+            history_idx,
+            suggestions,
+        } => match k.code {
+            KeyCode::Char(c) => {
+                input.push(c);
+                *suggestions = slash_suggestions(input);
+            }
             KeyCode::Backspace => {
                 input.pop();
+                *suggestions = slash_suggestions(input);
+            }
+            KeyCode::Tab => {
+                if let Some(cmd) = suggestions.first().and_then(|f| f.split(" — ").next()) {
+                    *input = cmd.to_string();
+                    *suggestions = slash_suggestions(input);
+                }
             }
             KeyCode::Enter => {
                 let cmd = std::mem::take(input);
                 if !cmd.trim().is_empty() {
                     out.push(format!("> {cmd}"));
                     out.extend(exec_cmd(&cmd));
+                    if !history.contains(&cmd) {
+                        history.push(cmd);
+                    }
+                    *history_idx = None;
                     let excess = out.len().saturating_sub(200);
                     out.drain(..excess);
                 }
+                *suggestions = Vec::new();
             }
-            KeyCode::Esc => st.mode = Mode::Browse,
+            KeyCode::Up => {
+                if history.is_empty() {
+                    // no-op: nothing to cycle
+                } else {
+                    let idx = history_idx.map_or(history.len() - 1, |i| i.saturating_sub(1));
+                    *history_idx = Some(idx);
+                    *input = history[idx].clone();
+                    *suggestions = slash_suggestions(input);
+                }
+            }
+            KeyCode::Down => {
+                if let Some(idx) = *history_idx {
+                    if idx + 1 < history.len() {
+                        *history_idx = Some(idx + 1);
+                        *input = history[idx + 1].clone();
+                        *suggestions = slash_suggestions(input);
+                    } else {
+                        *history_idx = None;
+                        input.clear();
+                        *suggestions = Vec::new();
+                    }
+                }
+            }
+            KeyCode::PageUp => *scroll = scroll.saturating_add(5),
+            KeyCode::PageDown => *scroll = scroll.saturating_sub(5),
+            KeyCode::Esc => {
+                *history_idx = None;
+                *suggestions = Vec::new();
+                st.mode = Mode::Browse;
+            }
             _ => {}
         },
         Mode::Menu { tgt, acts, hover } => match k.code {
@@ -1592,8 +2331,20 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
             KeyCode::Esc | KeyCode::Char('q') => st.mode = Mode::Browse,
             _ => st.mode = Mode::Browse,
         },
+        Mode::HardwareInfo { scroll, .. } => match k.code {
+            KeyCode::Down => *scroll = scroll.saturating_add(1),
+            KeyCode::Up => *scroll = scroll.saturating_sub(1),
+            KeyCode::PageUp => *scroll = scroll.saturating_add(5),
+            KeyCode::PageDown => *scroll = scroll.saturating_sub(5),
+            KeyCode::Esc | KeyCode::Char('q') => st.mode = Mode::Browse,
+            _ => st.mode = Mode::Browse,
+        },
         Mode::Ctx { items, hover } => match k.code {
-            KeyCode::Down => *hover = (*hover).saturating_add(1).min(items.len().saturating_sub(1)),
+            KeyCode::Down => {
+                *hover = (*hover)
+                    .saturating_add(1)
+                    .min(items.len().saturating_sub(1))
+            }
             KeyCode::Up => *hover = (*hover).saturating_sub(1),
             KeyCode::Enter => {
                 if let Some((n, _)) = items.get(*hover) {
@@ -1624,18 +2375,25 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
                 let areas = split(st.area);
                 let vd = areas[0].height.saturating_sub(4) as usize;
                 let vu = areas[1].height.saturating_sub(4) as usize;
-                let hit = table_hit(areas[0], my, st.scroll_docker, cur_len(st, Focus::Docker), vd)
-                    .map(|i| (Focus::Docker, i))
-                    .or_else(|| match st.focus {
-                        Focus::Ports => {
-                            table_hit(areas[1], my, st.scroll_ports, cur_len(st, Focus::Ports), vu)
-                                .map(|i| (Focus::Ports, i))
-                        }
-                        Focus::Overview => over_hit(areas[1], my, st.snap.as_ref())
-                            .map(|i| (Focus::Overview, i)),
-                        _ => table_hit(areas[1], my, st.scroll_units, cur_len(st, Focus::Units), vu)
-                            .map(|i| (Focus::Units, i)),
-                    });
+                let hit = table_hit(
+                    areas[0],
+                    my,
+                    st.scroll_docker,
+                    cur_len(st, Focus::Docker),
+                    vd,
+                )
+                .map(|i| (Focus::Docker, i))
+                .or_else(|| match st.focus {
+                    Focus::Ports => {
+                        table_hit(areas[1], my, st.scroll_ports, cur_len(st, Focus::Ports), vu)
+                            .map(|i| (Focus::Ports, i))
+                    }
+                    Focus::Overview => {
+                        over_hit(areas[1], my, st.snap.as_ref()).map(|i| (Focus::Overview, i))
+                    }
+                    _ => table_hit(areas[1], my, st.scroll_units, cur_len(st, Focus::Units), vu)
+                        .map(|i| (Focus::Units, i)),
+                });
                 let (f, i) = match hit {
                     Some(x) => x,
                     None => {
@@ -1653,17 +2411,25 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
                 }
                 let now = Instant::now();
                 let prev = st.last_click.replace((now, Hit::Row(f, i)));
-                if prev.map_or(false, |(t, h)| h == Hit::Row(f, i) && t.elapsed() < Duration::from_millis(350)) {
+            if prev.is_some_and(|(t, h)| {
+                    h == Hit::Row(f, i) && t.elapsed() < Duration::from_millis(350)
+                }) {
                     open_menu(st);
                 }
             }
             MouseEventKind::ScrollUp | MouseEventKind::ScrollDown => {
                 let areas = split(st.area);
-                let inside = |r: Rect| mx >= r.x && mx < r.x + r.width && my >= r.y && my < r.y + r.height;
-                let d = if m.kind == MouseEventKind::ScrollDown { 1 } else { -1 };
+                let inside =
+                    |r: Rect| mx >= r.x && mx < r.x + r.width && my >= r.y && my < r.y + r.height;
+                let d = if m.kind == MouseEventKind::ScrollDown {
+                    1
+                } else {
+                    -1
+                };
                 if inside(areas[0]) {
                     let len = cur_len(st, Focus::Docker) as i32;
-                    st.scroll_docker = (st.scroll_docker as i32 + d).clamp(0, len.saturating_sub(1)) as usize;
+                    st.scroll_docker =
+                        (st.scroll_docker as i32 + d).clamp(0, len.saturating_sub(1)) as usize;
                 } else if inside(areas[1]) && st.focus != Focus::Overview {
                     let (off, len) = if st.focus == Focus::Ports {
                         (st.scroll_ports, cur_len(st, Focus::Ports))
@@ -1697,7 +2463,9 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
             let now = Instant::now();
             let prev = st.last_click.replace((now, Hit::Item(row)));
             *hover = row;
-            if prev.map_or(false, |(t, h)| h == Hit::Item(row) && t.elapsed() < Duration::from_millis(350)) {
+            if prev.is_some_and(|(t, h)| {
+                h == Hit::Item(row) && t.elapsed() < Duration::from_millis(350)
+            }) {
                 st.last_click = None;
                 let act = acts[row];
                 let tgt = tgt.clone();
@@ -1727,7 +2495,9 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
             let now = Instant::now();
             let prev = st.last_click.replace((now, Hit::Item(row)));
             *hover = row;
-            if prev.map_or(false, |(t, h)| h == Hit::Item(row) && t.elapsed() < Duration::from_millis(350)) {
+            if prev.is_some_and(|(t, h)| {
+                h == Hit::Item(row) && t.elapsed() < Duration::from_millis(350)
+            }) {
                 st.last_click = None;
                 let act = acts[row];
                 let tgt = tgt.clone();
@@ -1751,7 +2521,9 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
             *hover = row;
             let now = Instant::now();
             let prev = st.last_click.replace((now, Hit::Item(row)));
-            if prev.map_or(false, |(t, h)| h == Hit::Item(row) && t.elapsed() < Duration::from_millis(350)) {
+            if prev.is_some_and(|(t, h)| {
+                h == Hit::Item(row) && t.elapsed() < Duration::from_millis(350)
+            }) {
                 st.last_click = None;
                 let n = items[row].0.clone();
                 apply_ctx(st, n, tx);
@@ -1803,48 +2575,60 @@ const GLYPHS: &[(&str, usize, &[&str])] = &[
     (
         "r",
         4,
-        &[".####.", "###...", "##....", "##....", "##....", "##....", "##....", "##...."],
+        &[
+            ".####.", "###...", "##....", "##....", "##....", "##....", "##....", "##....",
+        ],
     ),
     (
         "a",
         4,
-        &[".####.", "....##", "....##", ".####.", "##..##", "##..##", "##..##", ".####."],
+        &[
+            ".####.", "....##", "....##", ".####.", "##..##", "##..##", "##..##", ".####.",
+        ],
     ),
     (
         "t",
         2,
         &[
-            "..##..", "..##..", "######", "..##..", "..##..", "..##..", "..##..", "..##..", "..###.",
-            "..###.",
+            "..##..", "..##..", "######", "..##..", "..##..", "..##..", "..##..", "..##..",
+            "..###.", "..###.",
         ],
     ),
     (
         "s",
         4,
-        &[".#####", "##....", "##....", ".####.", "....##", "....##", "....##", "#####."],
+        &[
+            ".#####", "##....", "##....", ".####.", "....##", "....##", "....##", "#####.",
+        ],
     ),
     (
         "c",
         4,
-        &[".#####", "##....", "##....", "##....", "##....", "##....", "##....", ".#####"],
+        &[
+            ".#####", "##....", "##....", "##....", "##....", "##....", "##....", ".#####",
+        ],
     ),
     (
         "o",
         4,
-        &[".####.", "##..##", "##..##", "##..##", "##..##", "##..##", "##..##", ".####."],
+        &[
+            ".####.", "##..##", "##..##", "##..##", "##..##", "##..##", "##..##", ".####.",
+        ],
     ),
     (
         "p",
         4,
         &[
-            "#####.", "##..##", "##..##", "##..##", "#####.", "##....", "##....", "##....", "##....",
-            "##....",
+            "#####.", "##..##", "##..##", "##..##", "#####.", "##....", "##....", "##....",
+            "##....", "##....",
         ],
     ),
     (
         "e",
         4,
-        &[".####.", "##..##", "##..##", "######", "##....", "##....", "##..##", ".####."],
+        &[
+            ".####.", "##..##", "##..##", "######", "##....", "##....", "##..##", ".####.",
+        ],
     ),
 ];
 
@@ -1876,31 +2660,28 @@ fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
         return None;
     }
     let grid = logo_grid();
-    // gradiente mint → teal → verde escuro por linha lógica
-    let a = Color::Rgb(198, 230, 224);
-    let b = Color::Rgb(83, 143, 135);
-    let c = Color::Rgb(39, 68, 66);
+    // gradiente usando cores do tema: ciano → magenta → fundo
+    let top = c_cy();
+    let mid = c_mag();
+    let base = c_bg();
     let grad: Vec<Color> = (0..ROWS)
         .map(|y| {
             if y < 7 {
-                lerp(a, b, y as f32 / 7.0)
+                lerp(top, mid, y as f32 / 7.0)
             } else {
-                lerp(b, c, (y - 7) as f32 / 7.0)
+                lerp(mid, base, (y - 7) as f32 / 7.0)
             }
         })
         .collect();
-    let bg = c_bg();
     let mut lines: Vec<Line> = Vec::with_capacity(ROWS / 2);
     for pair in 0..ROWS / 2 {
         let mut spans = Vec::with_capacity(cols);
-        for cx in 0..W {
-            let top = grid[pair * 2][cx];
-            let bot = grid[pair * 2 + 1][cx];
+        for (top, bot) in grid[pair * 2].iter().zip(grid[pair * 2 + 1].iter()).take(W) {
             let span = Span::styled(
                 "▀",
                 Style::new()
-                    .fg(if top { grad[pair * 2] } else { bg })
-                    .bg(if bot { grad[pair * 2 + 1] } else { bg }),
+                    .fg(if *top { grad[pair * 2] } else { base })
+                    .bg(if *bot { grad[pair * 2 + 1] } else { base }),
             );
             spans.push(span.clone());
             if wide {
@@ -1920,7 +2701,7 @@ fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
 }
 
 fn spin(at: Instant) -> &'static str {
-    SPINNER[(at.elapsed().as_millis() / 80) as usize % SPINNER.len()]
+    SPINNER[(at.elapsed().as_millis() / 100) as usize % SPINNER.len()]
 }
 
 // moldura conforme o tema, fundo sólido da paleta
@@ -1996,11 +2777,22 @@ fn draw(f: &mut Frame, st: &mut State) {
     let head = Style::new().fg(c_cy()).add_modifier(Modifier::BOLD);
     let sel_style = Style::new().fg(c_wht()).bg(c_gray());
 
-    let rows: Vec<Row> = snap
-        .containers
-        .iter()
-        .enumerate()
-        .map(|(i, c)| {
+    let rows: Vec<Row> = if snap.containers.is_empty() {
+        vec![Row::new([
+            tr("  (no containers)", "  (nenhum contêiner)").to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+        ]).style(Style::new().fg(c_gray()))]
+    } else {
+        snap
+            .containers
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
             let col = if c.status.contains("healthy") {
                 c_grn()
             } else if c.status.contains("Exited") || c.status.contains("Dead") {
@@ -2031,7 +2823,8 @@ fn draw(f: &mut Frame, st: &mut State) {
             ])
             .style(style)
         })
-        .collect();
+        .collect()
+    };
     let body = box_title(f, areas[0], title, c_cy());
     let vis = body.height.saturating_sub(1) as usize;
     let t_docker = Table::new(
@@ -2046,7 +2839,18 @@ fn draw(f: &mut Frame, st: &mut State) {
             Constraint::Length(9),
         ],
     )
-    .header(Row::new([tr("NAME", "NOME"), tr("IMAGE", "IMAGEM"), tr("STATUS", "STATUS"), "CPU", "MEM", "SSD", tr("GRAPH", "GRAF")]).style(head));
+    .header(
+        Row::new([
+            tr("NAME", "NOME"),
+            tr("IMAGE", "IMAGEM"),
+            tr("STATUS", "STATUS"),
+            "CPU",
+            "MEM",
+            "SSD",
+            tr("GRAPH", "GRAF"),
+        ])
+        .style(head),
+    );
     f.render_widget(t_docker, body);
 
     // ---- bloco de baixo: systemd · portas · pc ----
@@ -2056,32 +2860,48 @@ fn draw(f: &mut Frame, st: &mut State) {
         _ => {
             let is_ports = st.focus == Focus::Ports;
             let urows: Vec<Row> = if is_ports {
-                snap.ports
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (addr, pr))| {
-                        let mut style = Style::new();
-                        if st.focus == Focus::Ports && i == st.sel_ports {
-                            style = sel_style;
-                        }
-                        Row::new([addr.clone(), pr.clone()]).style(style)
-                    })
-                    .collect()
-            } else {
-                snap.units
-                    .iter()
-                    .enumerate()
-                    .map(|(i, u)| {
-                        let mut style = Style::new().fg(if st.focus == Focus::Units && i == st.sel_units {
-                            c_wht()
-                        } else {
-                            match u.state.as_str() {
-                                "active" => c_grn(),
-                                "failed" => c_red(),
-                                "activating" | "reloading" => c_yel(),
-                                _ => c_gray(),
+                if snap.ports.is_empty() {
+                    vec![Row::new([
+                        tr("  (no ports)", "  (nenhuma porta)").to_string(),
+                        String::new(),
+                    ]).style(Style::new().fg(c_gray()))]
+                } else {
+                    snap.ports
+                        .iter()
+                        .enumerate()
+                        .map(|(i, (addr, pr))| {
+                            let mut style = Style::new();
+                            if st.focus == Focus::Ports && i == st.sel_ports {
+                                style = sel_style;
                             }
-                        });
+                            Row::new([addr.clone(), pr.clone()]).style(style)
+                        })
+                        .collect()
+                }
+            } else {
+                if snap.units.is_empty() {
+                    vec![Row::new([
+                        String::new(),
+                        tr("  (no units)", "  (nenhum unit)").to_string(),
+                        String::new(),
+                        String::new(),
+                    ]).style(Style::new().fg(c_gray()))]
+                } else {
+                    snap.units
+                        .iter()
+                        .enumerate()
+                        .map(|(i, u)| {
+                        let mut style =
+                            Style::new().fg(if st.focus == Focus::Units && i == st.sel_units {
+                                c_wht()
+                            } else {
+                                match u.state.as_str() {
+                                    "active" => c_grn(),
+                                    "failed" => c_red(),
+                                    "activating" | "reloading" => c_yel(),
+                                    _ => c_gray(),
+                                }
+                            });
                         if st.focus == Focus::Units && i == st.sel_units {
                             style = sel_style;
                         }
@@ -2100,15 +2920,24 @@ fn draw(f: &mut Frame, st: &mut State) {
                         .style(style)
                     })
                     .collect()
+                }
             };
             let (tr_title, cols, hdr) = if is_ports {
                 (
-                    tr1(" ■ listening ports — {} servers", " ■ portas escutando — {} servers", &snap.ports.len().to_string()),
+                    tr1(
+                        " ■ listening ports — {} servers",
+                        " ■ portas escutando — {} servers",
+                        &snap.ports.len().to_string(),
+                    ),
                     vec![Constraint::Percentage(34), Constraint::Percentage(66)],
                     Row::new(["SOCKET", tr("PROCESS", "PROCESSO")]),
                 )
             } else {
-                let modo = if get_all() { tr("all units", "todos os units") } else { tr("running only", "só rodando") };
+                let modo = if get_all() {
+                    tr("all units", "todos os units")
+                } else {
+                    tr("running only", "só rodando")
+                };
                 (
                     tr2(
                         " ■ systemd — {} services — {} · 'a' toggles",
@@ -2122,15 +2951,29 @@ fn draw(f: &mut Frame, st: &mut State) {
                         Constraint::Length(10),
                         Constraint::Percentage(60),
                     ],
-                    Row::new(["", tr("SERVICE", "SERVIÇO"), tr("STATE", "ESTADO"), tr("DESCRIPTION", "DESCRIÇÃO")]),
+                    Row::new([
+                        "",
+                        tr("SERVICE", "SERVIÇO"),
+                        tr("STATE", "ESTADO"),
+                        tr("DESCRIPTION", "DESCRIÇÃO"),
+                    ]),
                 )
             };
-            let body = box_title(f, bottom, tr_title, if is_ports { c_grn() } else { c_mag() });
+            let body = box_title(
+                f,
+                bottom,
+                tr_title,
+                if is_ports { c_grn() } else { c_mag() },
+            );
             let uvis = body.height.saturating_sub(1) as usize;
             let t_bottom = Table::new(
                 urows
                     .into_iter()
-                    .skip(if is_ports { st.scroll_ports } else { st.scroll_units })
+                    .skip(if is_ports {
+                        st.scroll_ports
+                    } else {
+                        st.scroll_units
+                    })
                     .take(uvis),
                 cols,
             )
@@ -2141,7 +2984,11 @@ fn draw(f: &mut Frame, st: &mut State) {
 
     // ---- rodapé ----
     let foot: Line<'static> = match &st.mode {
-        _ if st.msg.as_ref().map_or(false, |(_, at)| at.elapsed() < Duration::from_secs(5)) => {
+        _ if st
+            .msg
+            .as_ref()
+            .is_some_and(|(_, at)| at.elapsed() < Duration::from_secs(5)) =>
+        {
             Line::from(st.msg.as_ref().unwrap().0.clone())
         }
         Mode::Loading { label, at } => {
@@ -2152,10 +2999,27 @@ fn draw(f: &mut Frame, st: &mut State) {
             v.extend(shimmer(label, *at, c_yel()));
             Line::from(v)
         }
-        _ => Line::from(tr("↓↑ select · Tab: docker/systemd/ports/pc · Enter menu · v details · : theme · d disk · x context · q quit", "↓↑ seleciona · Tab: docker/systemd/portas/pc · Enter menu · v detalhes · : tema · d disco · x contexto · q sair")),
+                _ => {
+            let tname = match lang() {
+                Lang::En => "en",
+                Lang::Pt => "pt",
+            };
+            let theme = match THEME_LIST.iter().find(|(_, f)| f() == t()) {
+                Some((n, _)) => *n,
+                None => "pixel",
+            };
+            Line::from(vec![
+                Span::styled(format!(" {} | {} | {}", theme, tname, st.focus.label()), Style::new().fg(c_lblu()).add_modifier(Modifier::BOLD)),
+                Span::styled(" · ", Style::new().fg(c_gray())),
+                Span::styled(tr(
+                    "↓↑ select · Tab: docker/systemd/ports/hardware · H: hardware info · Enter menu · v details · : theme · d disk · x context · q quit",
+                    "↓↑ seleciona · Tab: docker/systemd/portas/hardware · H: informações de hardware · Enter menu · v detalhes · : tema · d disco · x contexto · q sair",
+                ), Style::new().fg(c_wht())),
+            ])
+        }
     };
     f.render_widget(
-        Paragraph::new(foot).style(Style::new().fg(c_wht()).bg(c_blu())),
+        Paragraph::new(foot).style(Style::new().fg(c_wht()).bg(c_bg())),
         areas[2],
     );
 
@@ -2210,7 +3074,11 @@ fn draw(f: &mut Frame, st: &mut State) {
             let body = box_title(
                 f,
                 r,
-                tr1(" live logs — {} (Esc closes)", " logs ao vivo — {} (Esc fecha)", &tgt.name),
+                tr1(
+                    " live logs — {} (Esc closes)",
+                    " logs ao vivo — {} (Esc fecha)",
+                    &tgt.name,
+                ),
                 c_yel(),
             );
             let keep = body.height as usize;
@@ -2228,19 +3096,34 @@ fn draw(f: &mut Frame, st: &mut State) {
         Mode::Disk { data } => {
             let imgs: Vec<&(String, u64)> = data.images.iter().take(14).collect();
             let nrows = 1 + 1 + data.cats.len() + 1 + imgs.len() + 1;
-            let h = (nrows as u16 + 5).min(st.area.height.saturating_sub(2)).max(6);
+            let h = (nrows as u16 + 5)
+                .min(st.area.height.saturating_sub(2))
+                .max(6);
             let w = 56u16.min(st.area.width.saturating_sub(4)).max(34);
             let r = popup_rect(st.area, w, h);
             f.render_widget(Clear, r);
-            let body = box_title(f, r, tr(" ■ SSD usage (docker)", " ■ uso de SSD (docker)"), c_yel());
+            let body = box_title(
+                f,
+                r,
+                tr(" ■ SSD usage (docker)", " ■ uso de SSD (docker)"),
+                c_yel(),
+            );
             let mut lines_s = String::new();
             if data.total == 0 {
-                lines_s.push_str(tr(" docker unavailable — no disk measurements", " docker indisponível — sem medidas de disco"));
+                lines_s.push_str(tr(
+                    " docker unavailable — no disk measurements",
+                    " docker indisponível — sem medidas de disco",
+                ));
             } else {
                 lines_s.push_str(&format!(" docker total: {}\n\n", fmt_size(data.total)));
                 for (t, v) in &data.cats {
                     let pl = pie(*v as f64 / data.total as f64);
-                    lines_s.push_str(&format!(" {} {:<13} {:>9}\n", pl, cat_label(t), fmt_size(*v)));
+                    lines_s.push_str(&format!(
+                        " {} {:<13} {:>9}\n",
+                        pl,
+                        cat_label(t),
+                        fmt_size(*v)
+                    ));
                 }
                 lines_s.push_str(tr("\n largest images:\n", "\n maiores imagens:\n"));
                 if imgs.is_empty() {
@@ -2305,7 +3188,15 @@ fn draw(f: &mut Frame, st: &mut State) {
                         Some(u) => {
                             info.push(("nome".into(), u.name.clone()));
                             info.push((tr("state", "estado").to_string(), u.state.clone()));
-                            info.push((tr("scope", "escopo").to_string(), if u.user { tr("user", "usuário") } else { tr("system", "sistema") }.to_string()));
+                            info.push((
+                                tr("scope", "escopo").to_string(),
+                                if u.user {
+                                    tr("user", "usuário")
+                                } else {
+                                    tr("system", "sistema")
+                                }
+                                .to_string(),
+                            ));
                             info.push((tr("description", "descrição").to_string(), u.desc.clone()));
                         }
                         None => sumiu = true,
@@ -2323,7 +3214,10 @@ fn draw(f: &mut Frame, st: &mut State) {
             let mut lines: Vec<Line> = Vec::new();
             if sumiu {
                 lines.push(Line::from(Span::styled(
-                    tr(" target vanished from snapshot — Esc goes back", " alvo sumiu do snapshot — Esc volta"),
+                    tr(
+                        " target vanished from snapshot — Esc goes back",
+                        " alvo sumiu do snapshot — Esc volta",
+                    ),
                     Style::new().fg(c_red()),
                 )));
             }
@@ -2331,11 +3225,17 @@ fn draw(f: &mut Frame, st: &mut State) {
                 lines.push(Line::from(vec![
                     Span::styled(format!(" {k:<10} "), Style::new().fg(c_gray())),
                     Span::styled(v.clone(), Style::new().fg(c_wht())),
-                ]));
+    ]));
+    lines.push(Line::from(""));
+
+    // disco / docker
             }
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
-                tr(" actions — ↑↓ move · Enter runs · click outside closes", " ações — ↑↓ move · Enter executa · clique fora fecha"),
+                tr(
+                    " actions — ↑↓ move · Enter runs · click outside closes",
+                    " ações — ↑↓ move · Enter executa · clique fora fecha",
+                ),
                 Style::new().fg(c_gray()),
             )));
             for (i, a) in acts.iter().enumerate() {
@@ -2351,8 +3251,14 @@ fn draw(f: &mut Frame, st: &mut State) {
             let body = box_title(f, r, format!(" ■ {who}: {}", tgt.name), col);
             f.render_widget(Paragraph::new(lines), body);
         }
-        Mode::Cmd { input, out } => {
-            let h = 12u16.min(st.area.height.saturating_sub(2));
+        Mode::Cmd {
+            input,
+            out,
+            scroll,
+            suggestions,
+            ..
+        } => {
+            let h = 20u16.min(st.area.height.saturating_sub(2));
             let r = Rect {
                 x: st.area.x,
                 y: st.area.y + st.area.height - h,
@@ -2363,11 +3269,54 @@ fn draw(f: &mut Frame, st: &mut State) {
             let body = box_title(
                 f,
                 r,
-                " theme terminal — 'help' lists commands · Esc closes ",
+                " ⌘ command — Tab complete · ↑↓ history · PgUp/PgDn scroll · Esc close ",
                 c_cy(),
             );
-            let keep = h.saturating_sub(4) as usize;
-            let tail = &out[out.len().saturating_sub(keep)..];
+            let inner = body.inner(Margin::new(1, 1));
+            let avail = inner.height as usize;
+
+            // build suggestion + did_you_mean lines (drawn between output and input)
+            let mut extra: Vec<Line> = Vec::new();
+            if !suggestions.is_empty() {
+                let sug_keep = suggestions.len().min(6);
+                for s in suggestions.iter().take(sug_keep) {
+                    extra.push(Line::from(Span::styled(
+                        format!("  {s}"),
+                        Style::new().fg(c_lblu()),
+                    )));
+                }
+                if suggestions.len() > 6 {
+                    extra.push(Line::from(Span::styled(
+                        format!("  … and {} more", suggestions.len() - 6),
+                        Style::new().fg(c_gray()),
+                    )));
+                }
+            }
+            if let Some(hint) = did_you_mean(input) {
+                extra.push(Line::from(Span::styled(
+                    format!("  ⚠ {hint}"),
+                    Style::new().fg(c_yel()),
+                )));
+            }
+            let input_line = Line::from(vec![
+                Span::styled("❯ ", Style::new().fg(c_cy()).add_modifier(Modifier::BOLD)),
+                Span::styled(input.clone(), Style::new().fg(c_wht())),
+            ]);
+            let fixed_lines = extra.len() + 1; // suggestions + input
+
+            // output lines with scroll — reserve space for extra + input
+            let keep = avail.saturating_sub(fixed_lines).saturating_sub(1);
+            let total = out.len();
+            // clamp scroll to meaningful range (scroll is &usize in draw, use local)
+            let max_scroll = total.saturating_sub(keep);
+            let scroll_val = (*scroll).min(max_scroll);
+            let start = if total > keep {
+                total.saturating_sub(keep + scroll_val)
+            } else {
+                0
+            };
+            let end = (start + keep).min(total);
+            let tail = &out[start..end];
             let mut lines: Vec<Line> = tail
                 .iter()
                 .map(|l| {
@@ -2381,13 +3330,35 @@ fn draw(f: &mut Frame, st: &mut State) {
                     Line::from(Span::styled(l.clone(), Style::new().fg(col)))
                 })
                 .collect();
-            lines.push(Line::from(vec![
-                Span::styled("> ", Style::new().fg(c_cy()).add_modifier(Modifier::BOLD)),
-                Span::styled(input.clone(), Style::new().fg(c_wht())),
-            ]));
-            f.render_widget(Paragraph::new(lines), body);
+
+            // scroll indicator (above suggestions)
+            if scroll_val > 0 && total > keep {
+                lines.insert(
+                    0,
+                    Line::from(Span::styled(
+                        format!(" ▲ scroll up {} more (PgUp)", scroll_val),
+                        Style::new().fg(c_gray()),
+                    )),
+                );
+            }
+            if end < total {
+                lines.push(Line::from(Span::styled(
+                    format!(" ▼ scroll down {} more (PgDn)", total - end),
+                    Style::new().fg(c_gray()),
+                )));
+            }
+
+            // suggestions + input
+            lines.extend(extra);
+            lines.push(input_line);
+
+            f.render_widget(Paragraph::new(lines), inner);
         }
-        Mode::Text { title, text, scroll } => {
+        Mode::Text {
+            title,
+            text,
+            scroll,
+        } => {
             let r = popup_rect(
                 st.area,
                 st.area.width.saturating_sub(6).min(100),
@@ -2399,7 +3370,33 @@ fn draw(f: &mut Frame, st: &mut State) {
             let scroll = (*scroll).min(text.len().saturating_sub(keep));
             let win = &text[scroll..(scroll + keep).min(text.len())];
             f.render_widget(
-                Paragraph::new(win.iter().map(String::as_str).collect::<Vec<_>>().join("\n")),
+                Paragraph::new(
+                    win.iter()
+                        .map(String::as_str)
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                ),
+                body,
+            );
+        }
+        Mode::HardwareInfo { lines, scroll } => {
+            let r = popup_rect(
+                st.area,
+                st.area.width.saturating_sub(6).min(120),
+                st.area.height.saturating_sub(4).min(30),
+            );
+            f.render_widget(Clear, r);
+            let body = box_title(f, r, if lang() == Lang::En { " hardware info " } else { " informações de hardware " }, c_cy());
+            let keep = body.height as usize;
+            let scroll = (*scroll).min(lines.len().saturating_sub(keep));
+            let win = &lines[scroll..(scroll + keep).min(lines.len())];
+            f.render_widget(
+                Paragraph::new(
+                    win.iter()
+                        .map(String::as_str)
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                ),
                 body,
             );
         }
@@ -2419,6 +3416,167 @@ fn draw(f: &mut Frame, st: &mut State) {
     }
 }
 
+fn hardware_lines(snap: &Option<Snapshot>) -> Vec<String> {
+    let snap = match snap {
+        Some(s) => s,
+        None => return vec!["sem snapshot".into()],
+    };
+    let pc = &snap.pc;
+    let mut out: Vec<String> = Vec::new();
+
+    // tenta usar um fetch real do sistema (fastfetch / neofetch)
+    let fetch_out = std::process::Command::new("fastfetch")
+        .arg("--structure")
+        .arg("Title:OS:Host:Kernel:Uptime:Packages:Shell:DE/WM:CPU:GPU:Memory:Swap:Disk:Battery:Local IP:Public IP")
+        .output()
+        .ok()
+        .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).to_string()) } else { None })
+        .or_else(|| {
+            std::process::Command::new("neofetch")
+                .output()
+                .ok()
+                .and_then(|o| if o.status.success() { Some(String::from_utf8_lossy(&o.stdout).to_string()) } else { None })
+        });
+
+    if let Some(fetch) = fetch_out {
+        for line in fetch.lines() {
+            out.push(line.to_string());
+        }
+    } else {
+        // fallback: tux ascii hardcoded
+        for line in tux_ascii() {
+            out.push(line.to_string());
+        }
+        let kv = std::fs::read_to_string("/proc/version").unwrap_or_default()
+            .split_whitespace().take(3).collect::<Vec<_>>().join(" ");
+        let hn = std::fs::read_to_string("/etc/hostname").unwrap_or_default().trim().to_string();
+        let up_h = pc.uptime_secs / 3600;
+        let up_m = (pc.uptime_secs % 3600) / 60;
+        let up_s = pc.uptime_secs % 60;
+        let uptime_val = if up_h > 0 { format!("{}h{}m{}s", up_h, up_m, up_s) }
+            else if up_m > 0 { format!("{}m{}s", up_m, up_s) }
+            else { format!("{}s", up_s) };
+        let ram_pct = if pc.mem_total > 0 { (pc._mem_used as f32 / pc.mem_total as f32 * 100.0) as u32 } else { 0 };
+        let swap_pct = if pc.swap_total > 0 { (pc.swap_used as f32 / pc.swap_total as f32 * 100.0) as u32 } else { 0 };
+        out.push(format!(" kernel: {}", kv));
+        out.push(format!(" hostname: {}", hn));
+        out.push(format!(" uptime: {}", uptime_val));
+        out.push(format!(
+            " load: {:.1} / {:.1} / {:.1}",
+            pc.load1, pc.load5, pc.load15
+        ));
+        out.push(format!(
+            " cpu: {} · {} core · {}%{}",
+            pc.cpu_model,
+            pc.cpu_cores,
+            pc.cpu_pct as u32,
+            pc.temp_c.map_or_else(String::new, |t| format!(" · {}°C", t))
+        ));
+        out.push(format!(
+            " procs: {} total · {} running",
+            total_processes().unwrap_or(0),
+            threads().unwrap_or(0)
+        ));
+        out.push(format!(
+            " ctx/intr: {} / {}",
+            ctx_switches().unwrap_or(0),
+            interrupts().unwrap_or(0)
+        ));
+        out.push(format!(
+            " ram: used {} / total {} · {}%",
+            fmt_size(pc._mem_used),
+            fmt_size(pc.mem_total),
+            ram_pct
+        ));
+        out.push(format!(
+            " swap: used {} / total {} · {}%",
+            fmt_size(pc.swap_used),
+            fmt_size(pc.swap_total),
+            swap_pct
+        ));
+    }
+    out.push(String::new());
+
+    // disco (resumo)
+    let disk_size: u64 = pc.mounts.iter().map(|m| m.1).sum::<u64>() + snap.dk_total;
+    let used: u64 = pc.mounts.iter().map(|m| m.2).sum::<u64>() + snap.dk_total;
+    let n_mounts = pc.mounts.len();
+    let raid = std::fs::read_to_string("/proc/mdstat")
+        .ok()
+        .map(|s| s.lines().filter(|l| l.starts_with("md")).count())
+        .unwrap_or(0);
+    out.push(if lang() == Lang::En {
+        format!(
+            " disks: {} · raid:{} · total {} · used {} · {}% · docker {}",
+            n_mounts, raid, fmt_size(disk_size), fmt_size(used),
+            if disk_size > 0 { (used as f32 / disk_size as f32 * 100.0) as u32 } else { 0 },
+            fmt_size(snap.dk_total)
+        )
+    } else {
+        format!(
+            " discos: {} · raid:{} · total {} · usado {} · {}% · docker {}",
+            n_mounts, raid, fmt_size(disk_size), fmt_size(used),
+            if disk_size > 0 { (used as f32 / disk_size as f32 * 100.0) as u32 } else { 0 },
+            fmt_size(snap.dk_total)
+        )
+    });
+
+    out
+}
+
+fn tux_ascii() -> Vec<&'static str> {
+    vec![
+        "                                  OX",
+        "                               8###O#X#",
+        "                             #88#X#8##X#-",
+        "                            -=#X#XO8X#OX#-",
+        "                            -:XO###X88O8-=",
+        "                           ++xXX#O8O8O##-=x",
+        "                          .+x=8##OOO88##+=::",
+        "                          ##:O8O8O#8OX#8#x.+",
+        "                         x:x=88#X88OX8O8O:=xx",
+        "                         #xxxX#8XOO#X8OOX:.--",
+        "                        :::#=8888#88#X#X8x#+-#",
+        "                        ##-x-#O##X8XOOO8##.===",
+        "                        =+#x#OO8X#XOX#O#OOx+.x",
+        "                        --.-OX@@XX8XX8@@O##.+=",
+        "                        +x:-O@@@8OO#X#@@@X=x+x",
+        "                       =--.#8@@@O##8X8@@@X=.:+#",
+        "                       .:===#@@@XXX#X8@@@X-.-=:",
+        "                       +x--X#@@@##X8XX@@@#Ox+-x",
+        "                       .-++8X#@@O88XX#@@8X#..xx",
+        "                       x=-:##O@@8##XXO@@##8-#.#",
+        "                       =+--XO88XOX8X8#88O#X=#x:",
+        "                       +.#.XOXOxxxxxxxxX8X#==x:",
+        "                        .xX88O8xxxxxxxxXOO#O#+",
+        "                        -=8#8OOxxxxxxxx##X##++",
+        "                        #.XOX8Ovvvvvvvv8X8O#+#",
+        "                        .:X8#O#vvvvvvvv#O#X#+.",
+        "                         #8#O8OX#X#XO#XXOOXO=",
+        "                         XOO#O###X8X8#888OXXO",
+        "                          XX8O#X##O8X##8OXO#",
+        "                          8XXO8#OOOOX#OXOX#O",
+        "                          8#8OXX##O#X8#8#OOX",
+        "                         #X8O8XOX#;:X#X###XO#",
+        "                         88##X8O : ;; #8O#OXX",
+        "                         X888#8, ;. ;.,OOX#8#",
+        "                        8O#X8OO::: ;., 8#O8#8O",
+        "                        8XX##X;,,.;;, ,.888#X#",
+        "                        888OX8,:, , ,,: X#OOO#",
+        "                       88#O8O ,  ,..,:;,.O8#8X#",
+        "                       #88XO8 ;..::,,,,,:XO88#X",
+        "                       X#X8X8,::.;.. .,; OXOOX#",
+        "                       888X8,, :,;,.;;. ,.8888O",
+        "                      .#X#88;:  :;::. ...;#8###.",
+        "                      XX#OXO;:   ,;;.:,.; #O8OOX",
+        "                      8XX#8O  .:: ,.:,.: ,8O8X#O",
+        "                      #X8XO..:.,, ;:;..:: ;X8#X#",
+        "                      X8##X::,  .,..;: ,:,,8X###",
+        "                      O#O8#;.:,,:  :.,;:.,,8#8X8",
+        "                      #8#8# ,. ;,,,,; ,,,, ##X#8",
+    ]
+}
+
 // visão "pc": cpu global + pizza geral + ram por processo (clicável, kill) + ssd por montagem
 fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: usize, area: Rect) {
     let pc = &snap.pc;
@@ -2436,23 +3594,26 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
     };
     let spark = spark_full(hist_global);
     lines.push(Line::from(vec![
-        Span::styled(" cpu ", Style::new().fg(c_cy()).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " cpu ",
+            Style::new().fg(c_cy()).add_modifier(Modifier::BOLD),
+        ),
         Span::styled(
             format!("{:>4.0}%", pc.cpu_pct),
             Style::new().fg(cpu_col).add_modifier(Modifier::BOLD),
         ),
         Span::styled(format!(" {spark}"), Style::new().fg(cpu_col)),
-        Span::styled(tr(" 1s per point", " 1s por ponto"), Style::new().fg(c_gray())),
     ]));
+    lines.push(Line::from(""));
 
-    // total pc — disco + docker; memória tem barra própria abaixo
-    let disk_size: u64 = pc.mounts.iter().map(|m| m.1).sum();
+    // disco / docker
+    let disk_size: u64 = pc.mounts.iter().map(|m| m.1).sum::<u64>() + snap.dk_total;
     let mcols = [c_grn(), c_lred(), c_lblu()];
     let mut parts: Vec<(u64, Color)> = pc
         .mounts
         .iter()
         .enumerate()
-        .map(|(i, (target, _, used))| (*used, mcols[i % mcols.len()]))
+        .map(|(i, (_target, _, used))| (*used, mcols[i % mcols.len()]))
         .collect();
     let mut legend: Vec<Span> = pc
         .mounts
@@ -2460,7 +3621,10 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
         .enumerate()
         .flat_map(|(i, (target, _, _))| {
             vec![
-                Span::styled(format!("■ {}", trunc(target, 12)), Style::new().fg(mcols[i % mcols.len()])),
+                Span::styled(
+                    format!("■ {}", trunc(target, 12)),
+                    Style::new().fg(mcols[i % mcols.len()]),
+                ),
                 Span::raw(" "),
             ]
         })
@@ -2468,21 +3632,40 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
     parts.push((snap.dk_total, c_yel()));
     legend.push(Span::styled("■ docker", Style::new().fg(c_yel())));
     legend.push(Span::raw(" "));
-    legend.push(Span::styled(tr("▒ free", "▒ livre"), Style::new().fg(c_gray())));
+    legend.push(Span::styled(
+        tr("▒ free", "▒ livre"),
+        Style::new().fg(c_gray()),
+    ));
+    let n_mounts = pc.mounts.len();
+    let disk_word = if n_mounts == 1 { "disk" } else { "disks" };
+    let disk_pt = if n_mounts == 1 { "disco" } else { "discos" };
+    let raid = std::fs::read_to_string("/proc/mdstat")
+        .ok()
+        .map(|s| s.lines().filter(|l| l.starts_with("md")).count())
+        .unwrap_or(0);
+    let used_pct = if disk_size > 0 {
+        let used: u64 = pc.mounts.iter().map(|m| m.2).sum::<u64>() + snap.dk_total;
+        (used as f32 / disk_size as f32 * 100.0) as u32
+    } else {
+        0
+    };
+    let label_en = format!(" {}: {} · raid:{} · {}% ", disk_word, n_mounts, raid, used_pct);
+    let label_pt = format!(" {}: {} · raid:{} · {}% ", disk_pt, n_mounts, raid, used_pct);
+    let label = if lang() == Lang::En { label_en } else { label_pt };
+    let pad = " ".repeat(inner_w.saturating_sub(label.len()));
     lines.push(Line::from(vec![
-        Span::styled(" total pc ", Style::new().fg(c_cy()).add_modifier(Modifier::BOLD)),
-        Span::from(" "),
+        Span::styled(
+            label,
+            Style::new().fg(c_cy()).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(pad),
     ]));
     let bar = bar_stack(inner_w.max(10), disk_size, &parts);
     lines.push(Line::from(bar));
     lines.push(Line::from(legend));
+    lines.push(Line::from(""));
 
     // ram — barra própria com o que tá consumindo (top processos + swap)
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        " ram ",
-        Style::new().fg(c_cy()).add_modifier(Modifier::BOLD),
-    )));
     let pool_r = pc.mem_total + pc.swap_total;
     let mut rparts: Vec<(u64, Color)> = snap
         .procs
@@ -2511,16 +3694,46 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
         rleg.push(Span::styled("■ swap", Style::new().fg(c_mag())));
         rleg.push(Span::raw(" "));
     }
-    rleg.push(Span::styled(tr("▒ free", "▒ livre"), Style::new().fg(c_gray())));
+    rleg.push(Span::styled(
+        tr("▒ free", "▒ livre"),
+        Style::new().fg(c_gray()),
+    ));
+    let ram_used: u64 = snap.procs.iter().map(|p| p.rss_b).sum();
+    let ram_pct = if pc.mem_total > 0 {
+        (ram_used as f32 / pc.mem_total as f32 * 100.0) as u32
+    } else {
+        0
+    };
+    let ram_label_en = format!(" ram: {}% ", ram_pct);
+    let ram_label_pt = format!(" ram: {}% ", ram_pct);
+    let ram_label = if lang() == Lang::En { ram_label_en } else { ram_label_pt };
+    let pad = " ".repeat(inner_w.saturating_sub(ram_label.len()));
+    lines.push(Line::from(vec![
+        Span::styled(
+            ram_label,
+            Style::new().fg(c_cy()).add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(pad),
+    ]));
     lines.push(Line::from(bar_stack(inner_w.max(10), pool_r, &rparts)));
     lines.push(Line::from(rleg));
+    lines.push(Line::from(""));
 
     // ram por coisa (processos) — clicável, pizza por quota de memória
     lines.push(Line::from(Span::styled(
-        tr(" ram by process — double-click/Enter to kill", " ram por coisa — duplo-clique/Enter pra kill"),
+        tr(
+            " ram by process — double-click/Enter to kill",
+            " ram por coisa — duplo-clique/Enter pra kill",
+        ),
         Style::new().fg(c_mag()).add_modifier(Modifier::BOLD),
     )));
-    for (i, p) in snap.procs.iter().take(n_p).enumerate() {
+    if snap.procs.is_empty() {
+        lines.push(Line::from(Span::styled(
+            tr("  (no processes)", "  (nenhum processo)"),
+            Style::new().fg(c_gray()),
+        )));
+    } else {
+        for (i, p) in snap.procs.iter().take(n_p).enumerate() {
         let frac = if pc.mem_total > 0 {
             p.rss_b as f64 / pc.mem_total as f64
         } else {
@@ -2531,9 +3744,15 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
             style = Style::new().fg(c_wht()).bg(c_gray());
         }
         lines.push(Line::from(Span::styled(
-            format!(" {} {:<16} {:>9}", pie(frac), trunc(&p.comm, 16), fmt_size(p.rss_b)),
+            format!(
+                " {} {:<16} {:>9}",
+                pie(frac),
+                trunc(&p.comm, 16),
+                fmt_size(p.rss_b)
+            ),
             style,
         )));
+    }
     }
 
     // ssd por coisa
@@ -2542,8 +3761,18 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
         tr(" ssd by mount", " ssd por coisa"),
         Style::new().fg(c_mag()).add_modifier(Modifier::BOLD),
     )));
-    for (i, (target, size, used)) in pc.mounts.iter().enumerate().take(4) {
-        let frac = if *size > 0 { *used as f64 / *size as f64 } else { 0.0 };
+    if pc.mounts.is_empty() {
+        lines.push(Line::from(Span::styled(
+            tr("  (no mounts)", "  (nenhum mount)"),
+            Style::new().fg(c_gray()),
+        )));
+    } else {
+        for (i, (target, size, used)) in pc.mounts.iter().enumerate().take(4) {
+        let frac = if *size > 0 {
+            *used as f64 / *size as f64
+        } else {
+            0.0
+        };
         lines.push(Line::from(Span::styled(
             format!(
                 " {} {:<16} {:>9} / {:>9}",
@@ -2555,17 +3784,22 @@ fn draw_overview(f: &mut Frame, snap: &Snapshot, hist_global: &[f32], sel_over: 
             Style::new().fg(mcols[i % mcols.len()]),
         )));
     }
+    }
+
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         tr1(
             " docker total: {} — 'd' opens the disk popup",
             " docker total: {} — 'd' abre o popup de disco",
-            &fmt_size(snap.dk_total)
+            &fmt_size(snap.dk_total),
         ),
         Style::new().fg(c_yel()),
     )));
 
-    let body = box_title(f, area, " ■ pc — tudo que roda e ocupa ", c_cy());
+    let title_en = format!(" ■ hardware — {} procs · {} mounts · {}% ram ", snap.procs.len(), pc.mounts.len(), ram_pct);
+    let title_pt = format!(" ■ hardware — {} procs · {} mounts · {}% ram ", snap.procs.len(), pc.mounts.len(), ram_pct);
+    let title = if lang() == Lang::En { title_en } else { title_pt };
+    let body = box_title(f, area, title, c_cy());
     f.render_widget(Paragraph::new(lines), body);
 }
 
@@ -2583,7 +3817,12 @@ mod tests {
     fn logo_legivel() {
         let g = logo_grid();
         for row in &g {
-            println!("{}", row.iter().map(|p| if *p { '█' } else { ' ' }).collect::<String>());
+            println!(
+                "{}",
+                row.iter()
+                    .map(|p| if *p { '█' } else { ' ' })
+                    .collect::<String>()
+            );
         }
         assert_eq!(g.len(), 14);
         assert!(g.iter().any(|r| r.iter().any(|p| *p)));
@@ -2594,7 +3833,9 @@ mod tests {
 
 fn main() {
     if std::env::args().any(|s| s == "--version") {
-        println!("ratscope 0.10 — pixel-art TUI · theme terminal · per-target details · pause/reload/kill -9/status");
+        println!(
+            "ratscope 0.10 — pixel-art TUI · theme terminal · per-target details · pause/reload/kill -9/status"
+        );
         return;
     }
     run_and_exit();
@@ -2634,7 +3875,7 @@ fn run_app() -> Result<(), Box<dyn std::error::Error>> {
     });
     let mut st = State {
         snap: None,
-        focus: Focus::Docker,
+        focus: Focus::Overview,
         sel_docker: 0,
         sel_units: 0,
         sel_ports: 0,
@@ -2649,6 +3890,7 @@ fn run_app() -> Result<(), Box<dyn std::error::Error>> {
         area: Rect::default(),
         msg: None,
     };
+    set_over_split(true);
     loop {
         while let Ok(m) = rx.try_recv() {
             match m {
@@ -2666,10 +3908,19 @@ fn run_app() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     st.snap = Some(s);
                 }
-                Msg::Done(m) => st.msg = Some((m, Instant::now())),
+                Msg::Done(m) => {
+                    st.msg = Some((m, Instant::now()));
+                    st.mode = Mode::Browse;
+                }
                 Msg::Disk(d) => st.mode = Mode::Disk { data: d },
                 Msg::Ctx(i) => st.mode = Mode::Ctx { items: i, hover: 0 },
-                Msg::Text { title, text } => st.mode = Mode::Text { title, text, scroll: 0 },
+                Msg::Text { title, text } => {
+                    st.mode = Mode::Text {
+                        title,
+                        text,
+                        scroll: 0,
+                    }
+                }
             }
         }
         if let Mode::Logs { text, rx: lrx, .. } = &mut st.mode {
@@ -2693,4 +3944,36 @@ fn run_app() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+}
+
+fn total_processes() -> Option<u64> {
+    std::fs::read_to_string("/proc/stat").ok().and_then(|s| {
+        s.lines().find(|l| l.starts_with("processes")).and_then(|l| {
+            l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok())
+        })
+    })
+}
+
+fn threads() -> Option<u64> {
+    std::fs::read_to_string("/proc/stat").ok().and_then(|s| {
+        s.lines().find(|l| l.starts_with("procs_running")).and_then(|l| {
+            l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok())
+        })
+    })
+}
+
+fn ctx_switches() -> Option<u64> {
+    std::fs::read_to_string("/proc/stat").ok().and_then(|s| {
+        s.lines().find(|l| l.starts_with("ctxt")).and_then(|l| {
+            l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok())
+        })
+    })
+}
+
+fn interrupts() -> Option<u64> {
+    std::fs::read_to_string("/proc/stat").ok().and_then(|s| {
+        s.lines().find(|l| l.starts_with("intr")).and_then(|l| {
+            l.split_whitespace().nth(1).and_then(|v| v.parse::<u64>().ok())
+        })
+    })
 }
