@@ -66,22 +66,16 @@ for _,off,rows in G:
         for cx,ch in enumerate(row):
             if ch=="#": grid[off+ry][x+cx]=1
     x+=7
-# same 12-color gradient as docs/logo.svg (grid rows 2..13), ▀ with fg+bg so
-# both pixel rows render — the old blob was fg-only (bottom half never painted)
+# same 12-color gradient as docs/logo.svg. Full blocks only — ▀/▄ render as
+# full blocks on some terminals (blob). 1 line per 2 pixel rows (OR merge)
+# keeps the SVG's square-pixel proportions.
 GRAD=[(165,205,199),(149,193,186),(132,180,173),(116,168,160),(99,155,148),(83,143,135),
       (77,132,125),(70,122,115),(64,111,105),(58,100,96),(52,89,86),(45,79,76)]
 def col(y): return GRAD[max(0,min(len(GRAD)-1,y-2))]
-def fgc(c): return f"{E}[38;2;{c[0]};{c[1]};{c[2]}m"
-def bgc(c): return f"{E}[48;2;{c[0]};{c[1]};{c[2]}m"
 for y in range(0,H,2):
-    parts=[]
-    for i in range(W):
-        t,b=grid[y][i],grid[y+1][i]
-        if t and b: parts.append(fgc(col(y))+bgc(col(y+1))+"▀")
-        elif t:     parts.append(fgc(col(y))+"▀")
-        elif b:     parts.append(fgc(col(y+1))+"▄")
-        else:       parts.append(" ")
-    print(f"{E}[39;49m"+"".join(parts)+f"{E}[39;49m")
+    c=col(y)
+    line="".join((f"{E}[38;2;{c[0]};{c[1]};{c[2]}m█" if (grid[y][i] or grid[y+1][i]) else " ") for i in range(W))
+    print(f"{E}[39;49m"+line+f"{E}[39;49m")
 PYEOF
 printf '\n'
 printf '  %spixel-art dashboard for docker, systemd, ports and hardware%s\n\n' "$GRAY" "$RESET"
