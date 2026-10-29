@@ -3471,7 +3471,7 @@ mod tests {
 fn main() {
     if std::env::args().any(|s| s == "--version") {
         println!(
-            "ratscope 0.11 — pixel-art TUI · theme terminal · per-target details · pause/reload/kill -9/status"
+            "ratscope 0.11.1 — pixel-art TUI · theme terminal · per-target details · pause/reload/kill -9/status"
         );
         return;
     }
