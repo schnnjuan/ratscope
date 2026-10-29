@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
@@ -23,7 +24,17 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, List, ListItem, Paragraph, Row, Table};
 use ratatui::{Frame, Terminal};
 
-const TICK_SECS: u64 = 1;
+// intervalo do loop de dados; default 1s — /tick mexe nisto em runtime
+static TICK_MS: AtomicU64 = AtomicU64::new(1000);
+pub fn tick() -> Duration {
+    Duration::from_millis(TICK_MS.load(Ordering::Relaxed))
+}
+pub fn set_tick_ms(ms: u64) {
+    TICK_MS.store(ms, Ordering::Relaxed);
+}
+pub fn tick_secs() -> f64 {
+    TICK_MS.load(Ordering::Relaxed) as f64 / 1000.0
+}
 const SPINNER: [&str; 8] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠶", "⠷"];
 // ---- tema em tempo de execução — o terminal ':' (tecla dois-pontos) mexe nisto ----
 
@@ -1979,8 +1990,18 @@ fn handle_key(st: &mut State, k: KeyEvent, tx: &Sender<Msg>) -> bool {
     true
 }
 
+// roda do mouse navega igual às setas nos modos de foco/scroll
+fn wheel_d(kind: MouseEventKind) -> Option<i32> {
+    match kind {
+        MouseEventKind::ScrollUp => Some(-1),
+        MouseEventKind::ScrollDown => Some(1),
+        _ => None,
+    }
+}
+
 fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
     let (mx, my) = (m.column, m.row);
+
     match &mut st.mode {
         Mode::Browse => match m.kind {
             MouseEventKind::Down(MouseButton::Left) => {
@@ -2049,7 +2070,7 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
                     } else {
                         (st.scroll_units, cur_len(st, Focus::Units))
                     };
-                    let off = (off as i32 + d).clamp(0, len as i32 - 1) as usize;
+                    let off = (off as i32 + d).clamp(0, len.saturating_sub(1) as i32) as usize;
                     if st.focus == Focus::Ports {
                         st.scroll_ports = off;
                     } else {
@@ -2060,6 +2081,11 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
             _ => {}
         },
         Mode::Menu { tgt, acts, hover } => {
+            if let Some(d) = wheel_d(m.kind) {
+                let n = acts.len().saturating_sub(1);
+                *hover = (*hover as i32 + d).clamp(0, n as i32) as usize;
+                return;
+            }
             if m.kind != MouseEventKind::Down(MouseButton::Left) {
                 return;
             }
@@ -2069,7 +2095,7 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
                 st.mode = Mode::Browse;
                 return;
             }
-            let row = (my - r.y - 2) as usize;
+            let row = my.saturating_sub(r.y + 2) as usize;
             if row >= acts.len() {
                 return;
             }
@@ -2086,6 +2112,11 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
             }
         }
         Mode::Detail { tgt, hover } => {
+            if let Some(d) = wheel_d(m.kind) {
+                let n = detail_acts(tgt.caller).len().saturating_sub(1);
+                *hover = (*hover as i32 + d).clamp(0, n as i32) as usize;
+                return;
+            }
             if m.kind != MouseEventKind::Down(MouseButton::Left) {
                 return;
             }
@@ -2118,6 +2149,11 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
             }
         }
         Mode::Ctx { items, hover } => {
+            if let Some(d) = wheel_d(m.kind) {
+                let n = items.len().saturating_sub(1);
+                *hover = (*hover as i32 + d).clamp(0, n as i32) as usize;
+                return;
+            }
             if m.kind != MouseEventKind::Down(MouseButton::Left) {
                 return;
             }
@@ -2127,7 +2163,7 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
                 st.mode = Mode::Browse;
                 return;
             }
-            let row = (my - r.y - 2) as usize;
+            let row = my.saturating_sub(r.y + 2) as usize;
             if row >= items.len() {
                 return;
             }
@@ -2142,7 +2178,17 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
                 apply_ctx(st, n, tx);
             }
         }
-        _ => {}
+        _ => {
+            // roda do mouse rola os popups de texto que só têm o teclado hoje
+            if let Some(d) = wheel_d(m.kind) {
+                match &mut st.mode {
+                    Mode::Text { scroll, .. } | Mode::HardwareInfo { scroll, .. } => {
+                        *scroll = scroll.saturating_add_signed(d as isize);
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 }
 
@@ -2152,9 +2198,9 @@ fn handle_mouse(st: &mut State, m: MouseEvent, tx: &Sender<Msg>) {
 fn lerp(a: Color, b: Color, f: f32) -> Color {
     match (a, b) {
         (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => Color::Rgb(
-            (r1 as f32 + (r2 - r1) as f32 * f) as u8,
-            (g1 as f32 + (g2 - g1) as f32 * f) as u8,
-            (b1 as f32 + (b2 - b1) as f32 * f) as u8,
+            (r1 as f32 + (r2 as f32 - r1 as f32) * f) as u8,
+            (g1 as f32 + (g2 as f32 - g1 as f32) * f) as u8,
+            (b1 as f32 + (b2 as f32 - b1 as f32) * f) as u8,
         ),
         _ => a,
     }
@@ -2266,12 +2312,12 @@ fn logo_grid() -> Vec<Vec<bool>> {
 fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
     const W: usize = 55; // 8 letras × 6 + 7 espaços
     const ROWS: usize = 14;
-    // pixel largo: 2 colunas por pixel compensa a célula de terminal ser mais alta que larga
-    let wide = (area.width as usize) >= W * 2;
-    let cols = if wide { W * 2 } else { W };
+    // meio bloco = célula/2 de altura ≈ 1 col de largura → pixel já é quadrado;
+    // dobrar colunas deixava as letras 2× gordas que no site
     if (area.width as usize) < W || (area.height as usize) < ROWS / 2 + 2 {
         return None;
     }
+    let cols = W;
     let grid = logo_grid();
     // gradiente usando cores do tema: ciano → magenta → fundo
     let top = c_cy();
@@ -2290,16 +2336,19 @@ fn draw_logo(f: &mut Frame, area: Rect) -> Option<Rect> {
     for pair in 0..ROWS / 2 {
         let mut spans = Vec::with_capacity(cols);
         for (top, bot) in grid[pair * 2].iter().zip(grid[pair * 2 + 1].iter()).take(W) {
-            let span = Span::styled(
-                "▀",
-                Style::new()
-                    .fg(if *top { grad[pair * 2] } else { base })
-                    .bg(if *bot { grad[pair * 2 + 1] } else { base }),
-            );
-            spans.push(span.clone());
-            if wide {
-                spans.push(span);
-            }
+            // empty cells emit a bare space — block chars on empty cells
+            // render as faint texture lines on some terminals
+            let span = if !*top && !*bot {
+                Span::raw(" ")
+            } else {
+                Span::styled(
+                    "▀",
+                    Style::new()
+                        .fg(if *top { grad[pair * 2] } else { base })
+                        .bg(if *bot { grad[pair * 2 + 1] } else { base }),
+                )
+            };
+            spans.push(span);
         }
         lines.push(Line::from(spans));
     }
@@ -3464,6 +3513,38 @@ mod tests {
         assert_eq!(g.len(), 14);
         assert!(g.iter().any(|r| r.iter().any(|p| *p)));
     }
+
+    #[test]
+    fn logo_core_reflete_tema() {
+        use ratatui::backend::TestBackend;
+        use ratatui::{Frame, Terminal};
+        fn dump(term: &Terminal<TestBackend>) -> Vec<(ratatui::style::Color, ratatui::style::Color)> {
+            term.backend()
+                .buffer()
+                .content()
+                .iter()
+                .filter(|c| c.symbol() == "▀")
+                .map(|c| (c.fg, c.bg))
+                .collect()
+        }
+        let words = |cols| ratatui::layout::Rect::new(0, 0, cols, 20);
+
+        // pixel: render, capture colors
+        let mut term = Terminal::new(TestBackend::new(120, 20)).unwrap();
+        mudar_tema(|t| *t = Theme::pixel());
+        term.draw(|f| { draw_logo(f, words(120)); }).unwrap();
+        let px = dump(&term);
+        assert!(!px.is_empty(), "logo deveria desenhar ▀ no backend de teste");
+
+        // carmesim: os mesmos pixels mudam de cor
+        mudar_tema(|t| *t = Theme::carmesim());
+        term.draw(|f| { draw_logo(f, words(120)); }).unwrap();
+        let car = dump(&term);
+        let px_set: std::collections::HashSet<_> = px.into_iter().collect();
+        let car_set: std::collections::HashSet<_> = car.into_iter().collect();
+        assert_ne!(px_set, car_set, "logo deve refletir o tema ativo");
+        assert_eq!(px_set.len(), car_set.len());
+    }
 }
 
 // ---- boot ----
@@ -3471,7 +3552,7 @@ mod tests {
 fn main() {
     if std::env::args().any(|s| s == "--version") {
         println!(
-            "ratscope 0.11.1 — pixel-art TUI · theme terminal · per-target details · pause/reload/kill -9/status"
+            "ratscope 0.11.2 — pixel-art TUI · theme terminal · per-target details · pause/reload/kill -9/status"
         );
         return;
     }
@@ -3507,7 +3588,7 @@ fn run_app() -> Result<(), Box<dyn std::error::Error>> {
             if px.send(Msg::Snap(snapshot())).is_err() {
                 return;
             }
-            std::thread::sleep(Duration::from_secs(TICK_SECS));
+            std::thread::sleep(tick());
         }
     });
     let mut st = State {

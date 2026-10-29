@@ -9,7 +9,8 @@ use ratatui::style::Color;
 
 use crate::{
     get_active_docker_host, get_docker_hosts, hex_of, lang, mudar_tema, parse_hex,
-    set_active_docker_host, set_docker_hosts, set_lang, t, tr, tr1, BorderKind, GaugeKind, Lang,
+    set_active_docker_host, set_docker_hosts, set_lang, set_tick_ms, t, tick_secs, tr, tr1,
+    BorderKind, GaugeKind, Lang,
     Theme, THEME_LIST,
 };
 
@@ -29,6 +30,7 @@ const SLASH_CMDS: &[(&str, &str)] = &[
         "set theme (pixel dracula gruvbox nord catppuccin tokyo solarized synthwave matrix candy ember mono carmesim)",
     ),
     ("/lang <en|pt>", "set language"),
+    ("/tick <secs>", "set refresh interval (0.25–60)"),
     ("/show", "show current theme values"),
     ("/save", "save config to ~/.config/ratscope/config.json"),
     ("/reset", "reset to pixel theme"),
@@ -73,6 +75,8 @@ pub enum Effect {
     /// remove o host; se era o ativo, desativa
     RemoveHost(String),
     ActivateHost(String),
+    /// intervalo de refresh em ms (comando /tick)
+    Tick(u64),
 }
 
 /// resposta de um comando: linhas para o buffer do terminal + efeitos a aplicar
@@ -148,6 +152,26 @@ pub fn exec(input: &str) -> Output {
         ("lang", ["en"]) => Output::ok().with(Effect::Lang(Lang::En)),
         ("lang", ["pt"]) => Output::ok().with(Effect::Lang(Lang::Pt)),
         ("lang", _) => Output::bad("usage: /lang en|pt"),
+        ("tick", [x]) => match x.parse::<f64>() {
+            Ok(s) if (0.25..=60.0).contains(&s) => {
+                let ms = (s * 1000.0).round() as u64;
+                let pretty = if ms % 1000 == 0 {
+                    format!("{}", ms / 1000)
+                } else {
+                    format!("{:.2}", ms as f64 / 1000.0)
+                };
+                Output::msg(vec![tr1(
+                    "✔ data refreshes every {0} s — /save to persist",
+                    "✔ dados atualizam a cada {0} s — /save pra persistir",
+                    &pretty,
+                )])
+                .with(Effect::Tick(ms))
+            }
+            _ => Output::bad(&tr(
+                "use: /tick <secs> (0.25–60)",
+                "use: /tick <seg> (0.25–60)",
+            )),
+        },
         ("bg" | "fundo", [h]) => match parse_hex(h) {
             Some(c) => Output::ok().with(Effect::Color(ColorSlot::Bg, c)),
             None => Output::bad(&tr(
@@ -286,6 +310,7 @@ pub fn apply(eff: Effect) {
             }
         }
         Effect::ActivateHost(host) => set_active_docker_host(Some(host)),
+        Effect::Tick(ms) => set_tick_ms(ms),
     }
 }
 
@@ -537,6 +562,7 @@ pub fn salvar_config() -> Result<String, String> {
             Lang::Pt => "pt",
             Lang::En => "en",
         },
+        "tick": tick_secs(),
     });
     if let Some(d) = p.parent() {
         std::fs::create_dir_all(d).map_err(|e| e.to_string())?;
@@ -608,6 +634,11 @@ pub fn carregar_config() {
     if v["lang"].as_str() == Some("pt") {
         set_lang(Lang::Pt);
     }
+    if let Some(s) = v["tick"].as_f64() {
+        if (0.25..=60.0).contains(&s) {
+            set_tick_ms((s * 1000.0).round() as u64);
+        }
+    }
 }
 
 // ---- testes: exec é puro, roda sem UI e sem mutar estado global ----
@@ -627,6 +658,23 @@ mod tests {
     fn unknown_command_errors() {
         assert!(exec("nope").lines_resolved()[0].starts_with("✖"));
         assert!(exec("nope").effects.is_empty());
+    }
+
+    #[test]
+    fn tick_clamps_e_aplica() {
+        let t0 = tick_secs();
+        exec("/tick 0.5").effects.into_iter().for_each(apply);
+        assert_eq!(tick_secs(), 0.5);
+        assert!(exec("/tick 0.1").lines_resolved()[0].starts_with("✖"));
+        assert!(exec("/tick abc").lines_resolved()[0].starts_with("✖"));
+        exec("/tick 60").effects.into_iter().for_each(apply);
+        assert_eq!(tick_secs(), 60.0);
+        // devolve o padrão pra não vazar estado entre testes
+        if (t0 - 1.0).abs() > f64::EPSILON {
+            apply(Effect::Tick((t0 * 1000.0) as u64));
+        } else {
+            apply(Effect::Tick(1000));
+        }
     }
 
     #[test]
