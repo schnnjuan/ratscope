@@ -6,8 +6,8 @@
 
 docker · systemd · listening ports · pc · hardware — one solid-color TUI
 
-[![release](https://img.shields.io/github/v/release/schnnjuan/ratscope?style=flat-square&color=538F87)](https://github.com/schnnjuan/ratscope/releases)
-[![crates.io](https://img.shields.io/crates/v/ratscope?style=flat-square&color=538F87)](https://crates.io/crates/ratscope)
+[![release](https://img.shields.io/github/v/release/schnnjuan/ratscope?style=flat-square&color=538F87&v=0.11.1)](https://github.com/schnnjuan/ratscope/releases)
+[![crates.io](https://img.shields.io/crates/v/ratscope?style=flat-square&color=538F87&v=0.11.1)](https://crates.io/crates/ratscope)
 [![license](https://img.shields.io/badge/license-MIT-538F87?style=flat-square)](LICENSE)
 
 </div>
