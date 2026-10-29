@@ -35,13 +35,13 @@ cargo install ratscope
 **curl (any linux, static binary)**
 
 ```sh
-curl -fsSL https://github.com/schnnjuan/ratscope/releases/latest/download/install.sh | sh
+curl -fsSL https://ratscope.schnnjuan.com/install.sh | sh
 ```
 
 português por padrão? instale com:
 
 ```sh
-curl -fsSL https://github.com/schnnjuan/ratscope/releases/latest/download/install.sh | RATSCOPE_LANG=pt sh
+curl -fsSL https://ratscope.schnnjuan.com/install.sh | RATSCOPE_LANG=pt sh
 ```
 
 **from source**
